@@ -37,7 +37,7 @@ bun link              # makes `epic-fab` available globally
 
 ## Authentication
 
-Uses Epic's [OAuth 2.0 device authorization grant](https://oauth.net/2/device-flow/). Run `epic-fab auth`, follow the printed URL, paste the user code, and approve in your normal browser. Tokens are persisted at `~/.config/epic-fab/auth.json` (mode 600) and refreshed automatically.
+Uses Epic's OAuth 2.0 authorization-code flow with manual code paste — the same flow Legendary and Heroic use on Linux for the OAuth client that has Fab API scope. Run `epic-fab auth`, follow the printed Epic login URL in any browser, sign in normally, and paste the authorization code back into the terminal. Tokens are persisted under your XDG config directory (mode 600) and refreshed automatically.
 
 No credentials touch the CLI directly. No Epic Launcher needed.
 

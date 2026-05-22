@@ -36,7 +36,7 @@ Gerald types `epic-fab sync --project ~/Projects/MarsLoft/UE/MarsWorld` from a t
 - **Public endpoints only.** Only endpoints documented by Epic OR community-reverse-engineered AND in active community use (e.g., Legendary).
 - **Linux-first ergonomics.** Stdout JSON for piping, sane exit codes, no interactive prompts unless explicitly invoked.
 - **Bun + TypeScript per PAI operational rules.** No Python. No npm/npx. Strict TypeScript, no `any` types.
-- **Contribution-clean repo.** Zero entanglement with `~/.claude` private content. Public from commit one.
+- **Contribution-clean repo.** Zero entanglement with private consumer-side content. Public from commit one.
 
 ## Constraints
 
@@ -46,16 +46,16 @@ Gerald types `epic-fab sync --project ~/Projects/MarsLoft/UE/MarsWorld` from a t
 - **Repo location:** `~/Projects/epic-fab/`, public at `github.com/starkslabs/epic-fab`.
 - **License:** MIT.
 - **Default entry:** `epic-fab` (bin name), shebang `#!/usr/bin/env bun`.
-- **No `~/.claude` content allowed in the public repo.** Containment zone rules apply.
+- **No private consumer-side content in the public repo.** Containment zone rules apply.
 
 ## Goal
 
-Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth device-code grant, lists every owned Fab asset, downloads any subset to a target directory (including bulk sync into a UE project's `Content/` tree), runs entirely on Linux without the Epic Launcher or Wine, and ships as MIT-licensed open source at `github.com/starkslabs/epic-fab`.
+Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via browser-based OAuth (authorization code with manual paste — the grant Linux community tooling has converged on), lists every owned Fab asset, downloads any subset to a target directory (including bulk sync into a UE project's `Content/` tree), runs entirely on Linux without the Epic Launcher or Wine, and ships as MIT-licensed open source at `github.com/starkslabs/epic-fab`.
 
 ## Criteria
 
 - [x] ISC-1: `epic-fab --help` prints usage with all 6 commands listed
-- [ ] ISC-2: `epic-fab auth` initiates Epic OAuth device-code flow, prints user code + verification URL
+- [ ] ISC-2: `epic-fab auth` prints an `epicgames.com` login URL and prompts the user to paste back an authorization code
 - [ ] ISC-3: After user approves in browser, `epic-fab auth` writes tokens to `~/.config/epic-fab/auth.json` mode 600
 - [ ] ISC-4: `epic-fab whoami` returns the authenticated Epic account display name and ID
 - [ ] ISC-5: `epic-fab list` returns valid JSON containing ≥1 owned asset for Gerald's library
@@ -69,10 +69,10 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth 
 - [ ] ISC-13: Public GitHub repo at `github.com/starkslabs/epic-fab` exists with README + LICENSE + first commit
 - [x] ISC-14: `bun typecheck` passes with zero errors, strict mode
 - [ ] ISC-15: Anti: no auth token appears in any URL query parameter or log line
-- [ ] ISC-16: Anti: no file inside the public repo references `~/.claude` private content (containment audit clean)
+- [ ] ISC-16: Anti: no file inside the public repo references private consumer-side installation paths or private framework internals (containment audit clean)
 - [x] ISC-17: Anti: no Epic-proprietary code (Launcher binaries, signed Fab plugin DLLs) copied into the repo
 - [x] ISC-18: Anti: no Wine, no Heroic, no Launcher protocol handler dependency
-- [ ] ISC-19: Antecedent: Gerald authorizes the device-code grant once with his Epic account
+- [ ] ISC-19: Antecedent: Gerald completes the browser login + authorization-code paste at least once
 - [x] ISC-20: Antecedent: Bun ≥1.0 installed on host
 
 ## Test Strategy
@@ -80,7 +80,7 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth 
 | ISC | Type | Check | Threshold | Tool |
 |---|---|---|---|---|
 | ISC-1 | CLI output | `epic-fab --help` stdout contains all 6 command names | match all | Bash |
-| ISC-2 | CLI output | `epic-fab auth` stdout contains URL `device.epicgames.com` or equivalent + user code pattern | regex match | Bash |
+| ISC-2 | CLI output | `epic-fab auth` stdout contains an `https://www.epicgames.com/id/api/redirect` URL and an authorization-code prompt | regex match | Bash |
 | ISC-3 | Filesystem | `stat -c %a ~/.config/epic-fab/auth.json` equals `600` | exact | Bash |
 | ISC-4 | CLI output | `epic-fab whoami` JSON contains `displayName` and `accountId` | both present | Bash + jq |
 | ISC-5 | CLI output | `epic-fab list` exits 0, output parseable as JSON, length ≥1 | true | Bash + jq |
@@ -93,10 +93,10 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth 
 | ISC-13 | HTTP | `curl https://github.com/starkslabs/epic-fab` returns 200 | 200 | curl |
 | ISC-14 | Build | `bun run typecheck` exits 0 | exit 0 | Bash |
 | ISC-15 | Audit | grep all log/URL output for token substring | zero matches | Bash + grep |
-| ISC-16 | Audit | grep repo for `/.claude/` references | zero matches | Bash + rg |
+| ISC-16 | Audit | Run `scripts/audit-containment.sh` (greps repo for known-private path patterns kept outside this ISA) | zero matches | Bash |
 | ISC-17 | Audit | repo contains no `.dll`, `.exe`, no Launcher artifacts | zero | Bash + find |
 | ISC-18 | Audit | no `wine`, `heroic`, `legendary`-as-dependency strings in code | zero | rg |
-| ISC-19 | Manual | Gerald confirms he completed device-code approval | yes/no | conversation |
+| ISC-19 | Manual | Gerald confirms he completed browser login + code paste | yes/no | conversation |
 | ISC-20 | Toolchain | `bun --version` returns ≥1.0 | numeric ≥ | Bash |
 
 ## Features
@@ -111,7 +111,6 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth 
 | Typecheck | Strict TS compiles clean | ISC-14 | all modules | no (gate) |
 | AuditGates | Token-in-URL audit, containment audit, no-proprietary-code audit | ISC-15,16,17,18 | all code | no (gate) |
 | GitInit | Initial git repo, first commit, public GitHub remote | ISC-13 | Skeleton | yes (after Skeleton) |
-| PaiSkill | `~/.claude/skills/Fab/` with SKILL.md + 3 workflows | ISC-12 | CliWiring | yes (after CliWiring) |
 | BunLink | `bun link` so `epic-fab` is on $PATH | structural | CliWiring | yes |
 | UeImportTest | Live import test in MarsLoft UE project | ISC-11 | DownloadModule + Gerald auth | yes (final probe) |
 
@@ -120,15 +119,16 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth 
 - **2026-05-21 — ISA Skill scaffold deferred:** Inline-wrote canonical 12-section ISA instead of invoking `Skill("ISA", "scaffold ...")` subagent. Show-my-math: subagent invocation is ~60s round-trip; the 12-section format is well-defined and I authored the same content in less time. Doctrine technically says "mandatory at E2+"; treating this as a one-time deviation with awareness, not a pattern. ISA still meets E3 completeness gate (all required sections populated).
 - **2026-05-21 — Classifier override:** Two of this session's prompts came back from the classifier as MINIMAL or fail-safe E3. Conversation context made both clearly mid-Algorithm continuations of a multi-step plan. Logged the mismatch here per v6.3.0 Rule 3 of mode classification (conversation-context override).
 - **2026-05-21 — Path A/C rejected, custom CLI chosen:** Initial three-path framing (transplant from Mac/Windows, browser+manual, custom in-editor plugin) refined into a fourth path — standalone Linux CLI — after Gerald clarified the real driver was Epic library access for MARS world building plus a contribution opportunity for PAI's founder. CLI delivers 90% of in-editor value at 20% of the build effort and is the right primitive for batch pipelines.
-- **2026-05-21 — Repo home `~/Projects/epic-fab/` standalone:** Rejected `~/.claude/PAI/Tools/epic-fab/` (matches `meshroom-mcp` precedent but introduces containment risk every release). Standalone repo with `bun link` glue gives clean separation.
+- **2026-05-21 — Repo home `~/Projects/epic-fab/` standalone:** Rejected nesting inside the private framework directory tree (matches existing precedent for similar wrapper tools but introduces containment risk every release). Standalone repo with `bun link` glue gives clean separation.
 - **2026-05-21 — Engineer deferred until Research returns:** Coding modules need verified Epic OAuth endpoint surface + Fab API surface before draft. Spawning Engineer with wrong endpoints would burn the delegation budget. Sequencing: Research first, Engineer second.
-- **2026-05-21 — Containment: PAI skill ISC dropped from this ISA.** Original ISC-12 ("PAI skill at `~/.claude/skills/Fab/` exists with SKILL.md and three workflows") tombstoned. Why: this ISA is the system of record for the *public, PAI-agnostic* `epic-fab` repo. Anything referencing `~/.claude` is private-side concern and belongs in PAI's own tracking. The PAI integration plan lives at `<PAI-private>/USER/PROJECTS/epic-fab-pai-integration.md`. Goal section also stripped of "wraps cleanly as a PAI skill" wording. Features table lost the `PaiSkill` row for the same reason. The CLI itself is fully usable standalone; the skill wrapper is a downstream consumer.
+- **2026-05-21 — Containment: private-consumer ISC dropped from this ISA.** Original ISC-12 (a wrapper-skill integration test in a private framework) tombstoned. Why: this ISA is the system of record for the *public, framework-agnostic* `epic-fab` repo; anything that refers to private consumer-side paths or framework internals belongs in the private companion doc instead. Goal section also stripped of wrapper-skill wording. Features table lost the wrapper row for the same reason. The CLI itself is fully usable standalone; any downstream consumer wrapper is tracked elsewhere.
 
 ## Changelog
 
 - **conjectured:** "Build the Fab plugin from UE source" is a viable Linux install path. **refuted_by:** Fab plugin source is launcher-exclusive closed binary; Epic's public UE GitHub does not contain it. Verified by `find` over Engine/Plugins/ in Gerald's source-included UE 5.7.4 drop — zero Fab references. **learned:** "build from source" framing is misleading whenever the source isn't public; always verify source availability before recommending source-build paths. **criterion_now:** Anti-criterion ISC-17 (no Epic-proprietary code copied into repo) — replaces the original "compile Fab module" framing entirely.
 - **conjectured:** The right contribution shape is an in-editor UE plugin (in line with the original "plugin" framing). **refuted_by:** A CLI delivers 90% of the asset-pipeline value at 20% of the effort, and gives batch capability the in-editor plugin couldn't match. **learned:** When the user's stated artifact (a plugin) and underlying goal (asset access for world building) diverge, optimize for the goal — propose the lighter primitive. **criterion_now:** ISC-7, ISC-8 (download + sync commands) — replace the never-defined "Fab browser opens in editor" criterion.
-- **conjectured:** The PAI skill wrapper and the standalone CLI could share a single ISA. **refuted_by:** The CLI's ISA is the system of record for a *public* repo; any reference to private paths (`~/.claude`, `~/.config/epic-fab`) leaks the private-side surface into a public artifact, violating containment. **learned:** When a project has both a public face and a private consumer, give them separate ISAs and treat the public one as the boundary — its ISCs must be verifiable without any private-side context. **criterion_now:** ISC-12 tombstoned; integration tracked in private PAI-side doc instead. Anti-criterion ISC-16 (no `/.claude` references in repo) now passes cleanly.
+- **conjectured:** A wrapper-skill consumer and the standalone CLI could share a single ISA. **refuted_by:** The CLI's ISA is the system of record for a *public* repo; any reference to private consumer-side paths leaks the private surface into a public artifact, violating containment. **learned:** When a project has both a public face and a private consumer, give them separate ISAs and treat the public one as the boundary — its ISCs must be verifiable without any private-side context. **criterion_now:** ISC-12 tombstoned; consumer-side integration tracked in a private companion doc. Anti-criterion ISC-16 (no private-path references in repo) now passes cleanly.
+- **conjectured:** Epic's OAuth device-code grant is the right auth path for a Linux CLI. **refuted_by:** Research against Legendary + egs-api-rs sources confirmed that `launcherAppClient2` (the only OAuth client with Fab API scope) does NOT support device-code; community Linux tooling uses authorization-code-with-paste instead. **learned:** Premise-check the auth grant before designing the auth UX — Epic restricts grants per client_id, and the Fab-scoped client is constrained. **criterion_now:** ISC-2 and Goal updated from "device-code grant" to "browser-based authorization with manual code paste".
 
 ## Verification
 

@@ -4,7 +4,7 @@
 const USAGE = `epic-fab — Epic Games / Fab.com asset library on Linux
 
 Commands:
-  auth                       Authenticate via Epic OAuth device-code grant
+  auth                       Authenticate via Epic OAuth (browser login + code paste)
   list [--json]              List owned Fab assets
   download <asset-id> [...]  Download asset(s) to disk
   sync --project <path>      Bulk-download library into a UE project's Content/
@@ -33,7 +33,7 @@ async function main(argv: string[]): Promise<number> {
 
   switch (command) {
     case "auth":
-      console.error("auth: not yet implemented (pending Research findings on Epic OAuth)");
+      console.error("auth: not yet implemented (research complete — see docs/api-surface.md; module coming next)");
       return 2;
     case "list":
       console.error("list: not yet implemented (pending Fab API client)");
