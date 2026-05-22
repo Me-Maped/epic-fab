@@ -3,6 +3,7 @@
 // Auth model: the Epic access_token from §1 is the Fab bearer; no separate Fab token exchange.
 
 import type { AuthTokens } from "./auth.ts";
+import { parseManifest, type ChunkInfo, type ChunkPart } from "./manifestParser.ts";
 
 // docs/api-surface.md §3.1 — use /e/ and /p/ URL families exclusively; Bearer-only, no cookies.
 const FAB_HOST = "https://www.fab.com";
@@ -22,18 +23,33 @@ export interface FabAssetSummary {
   raw: Record<string, unknown>;
 }
 
+// FabDownloadFile = one logical file in the asset, plus everything download.ts needs to
+// reassemble it from chunks. The shape diverges from the brief's earlier `{url, size, filename}`
+// because Epic files are not 1:1 with CDN URLs — each file is built from N chunk parts, and
+// chunks are shared across files. See docs/api-surface.md §3.4 step 2.
+//
+// Design (Option A from the task brief): the parser hands back per-file `chunkParts` + a shared
+// `chunkInfoById` table + the CDN base URL. download.ts walks the parts, fetches/caches chunks,
+// and reassembles. Keeps api.ts a thin transport layer.
 export interface FabDownloadFile {
-  url: string;
-  size: number;
   filename: string;
+  size: number;
+  fileHash: string;
+  chunkParts: ReadonlyArray<ChunkPart>;
 }
 
 export interface FabAssetDetail extends FabAssetSummary {
   // docs/api-surface.md §3.4 — `manifest_url` is a signed CDN URL pointing at Epic's binary
-  // manifest format. Parsing that format (chunks + reassembly) is non-trivial and is deliberately
-  // deferred — see download.ts. Each entry is a candidate distribution point (multi-CDN).
+  // manifest format. Each entry is a candidate distribution point (multi-CDN failover).
   manifestPointers: ReadonlyArray<{ manifestUrl: string; distributionBaseUrl: string }>;
   downloadUrls: ReadonlyArray<FabDownloadFile>;
+  // Shared chunk database — every file's chunkParts[].guid resolves here.
+  chunkInfoById: ReadonlyMap<string, ChunkInfo>;
+  // Manifest version drives the chunk-directory name (ChunksV3/V4/V5).
+  manifestVersion: number;
+  // Distribution point picked for this asset. CDN URLs in this manifest are signed against
+  // this host; switching hosts mid-download requires re-requesting the manifest.
+  distributionBaseUrl: string;
   artifactId: string;
   namespace: string;
 }
@@ -166,14 +182,23 @@ export async function getAsset(tokens: AuthTokens, assetId: string): Promise<Fab
     );
   }
 
-  // TODO: parse Epic's binary manifest format from manifestPointers[0].manifestUrl to get
-  // the real per-file chunk list. Until that lands, downloadUrls treats the signed manifest
-  // URL itself as a single opaque blob to fetch. See docs/api-surface.md §3.4 step 2 and
-  // VastBlast/EpicManifestDownloader for reference parsers.
-  const downloadUrls: FabDownloadFile[] = manifestPointers.map((pointer, index) => ({
-    url: pointer.manifestUrl,
-    size: 0,
-    filename: `manifest-${index}.bin`,
+  // docs/api-surface.md §3.4 step 2 — fetch + parse the signed binary manifest, then resolve it
+  // into per-file chunk-part lists. We use the first pointer; if it goes stale (signed URL
+  // expiry) the caller can re-fetch via getAsset(). Multi-CDN failover lives in download.ts.
+  const primary = manifestPointers[0];
+  if (!primary) {
+    throw new Error(`Fab manifest response for ${assetId} had no usable pointer`);
+  }
+  const manifest = await parseManifest(primary.manifestUrl);
+
+  const chunkInfoById = new Map<string, ChunkInfo>();
+  for (const chunk of manifest.chunkDataList) chunkInfoById.set(chunk.guid, chunk);
+
+  const downloadUrls: FabDownloadFile[] = manifest.fileManifestList.map((file) => ({
+    filename: file.filename,
+    size: file.fileSize,
+    fileHash: file.fileHash,
+    chunkParts: file.chunkParts,
   }));
 
   return {
@@ -182,6 +207,9 @@ export async function getAsset(tokens: AuthTokens, assetId: string): Promise<Fab
     namespace,
     manifestPointers,
     downloadUrls,
+    chunkInfoById,
+    manifestVersion: manifest.version,
+    distributionBaseUrl: primary.distributionBaseUrl,
   };
 }
 
