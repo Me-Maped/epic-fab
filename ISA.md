@@ -4,10 +4,10 @@ slug: epic-fab
 task: Linux-native CLI for Epic Games / Fab.com asset library — no Launcher required
 effort: E3
 phase: build
-progress: 6/19
+progress: 8/19
 mode: standard
 started: 2026-05-21T21:05:00-05:00
-updated: 2026-05-21T21:55:00-05:00
+updated: 2026-05-22T00:15:00-05:00
 iteration: 1
 ---
 
@@ -55,7 +55,7 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via browse
 ## Criteria
 
 - [x] ISC-1: `epic-fab --help` prints usage with all 6 commands listed
-- [ ] ISC-2: `epic-fab auth` prints an `epicgames.com` login URL and prompts the user to paste back an authorization code
+- [x] ISC-2: `epic-fab auth` prints an `epicgames.com` login URL and prompts the user to paste back an authorization code
 - [ ] ISC-3: After user approves in browser, `epic-fab auth` writes tokens to `~/.config/epic-fab/auth.json` mode 600
 - [ ] ISC-4: `epic-fab whoami` returns the authenticated Epic account display name and ID
 - [ ] ISC-5: `epic-fab list` returns valid JSON containing ≥1 owned asset for Gerald's library
@@ -66,7 +66,7 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via browse
 - [ ] ISC-10: `epic-fab logout` deletes `~/.config/epic-fab/auth.json` and confirms
 - [ ] ISC-11: A pulled Fab asset can be imported into the MARS world UE 5.7.4 project and renders in editor
 - [ ] ISC-12: [DROPPED — see Decisions 2026-05-21 containment]
-- [ ] ISC-13: Public GitHub repo at `github.com/starkslabs/epic-fab` exists with README + LICENSE + first commit
+- [x] ISC-13: Public GitHub repo at `github.com/starkslabs/epic-fab` exists with README + LICENSE + first commit
 - [x] ISC-14: `bun typecheck` passes with zero errors, strict mode
 - [x] ISC-15: Anti: no auth token appears in any URL query parameter or log line
 - [ ] ISC-16: Anti: no file inside the public repo references private consumer-side installation paths or private framework internals (containment audit clean)
@@ -123,6 +123,7 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via browse
 - **2026-05-21 — Engineer deferred until Research returns:** Coding modules need verified Epic OAuth endpoint surface + Fab API surface before draft. Spawning Engineer with wrong endpoints would burn the delegation budget. Sequencing: Research first, Engineer second.
 - **2026-05-21 — Engineer dispatched:** Briefed with the api-surface.md research, current ISA, and src/ scaffolding. Scope: implement `src/auth.ts` (authorization_code with paste), `src/api.ts` (Fab REST client), `src/download.ts` (two-step manifest fetch), and wire `src/cli.ts`. Hard constraints: TypeScript strict, no `any`, Bun built-ins only, no `.claude` references, no commits (parent reviews + commits). Engineer running in background.
 - **2026-05-21 — Engineer returned (295s, 87k tokens):** All four modules implemented, typecheck clean, static security audits clean. Engineer correctly preserved scope (touched only `src/*.ts`), defensively typed `[UNCERTAIN]` field names via `stringField()` candidate-walking helper, used `Bun.write(path, response)` for streaming downloads, defended against path traversal in `safeRelativePath()`, persisted tokens atomically (`.tmp` + rename, mode 600 on file + 0o700 on parent dir). One material deferral surfaced honestly: Epic's binary manifest format is not yet parsed, so `download <id>` currently writes the signed manifest blob itself instead of the per-file `.uasset` chunks inside. ISC-7 (bytes match) passes narrowly; ISC-11 (UE import) blocked on the manifest parser. Reference parser cited: `VastBlast/EpicManifestDownloader`. Next iteration ticket implicit.
+- **2026-05-22 — Push-without-stops batch:** Gerald said "commence all four recommended next steps, no stops". Executed in parallel: (1) Engineer dispatched in background to implement binary manifest parser per Epic's format spec, citing VastBlast as reference; (2) `bun link` succeeded — `epic-fab` v0.1.0 now resolves on `$PATH` at `/home/starkslabs/.bun/bin/epic-fab`; (3) `gh repo create starkslabs/epic-fab --public --source=. --remote=origin --push` succeeded — repo public at `github.com/StarksLabs/epic-fab` with all 4 commits; (4) live auth deferred — interactive paste flow cannot be automated; Gerald runs `epic-fab auth` when ready. URL + prompt halves of ISC-2 verified via empty-stdin smoke test.
 - **2026-05-21 — Containment: private-consumer ISC dropped from this ISA.** Original ISC-12 (a wrapper-skill integration test in a private framework) tombstoned. Why: this ISA is the system of record for the *public, framework-agnostic* `epic-fab` repo; anything that refers to private consumer-side paths or framework internals belongs in the private companion doc instead. Goal section also stripped of wrapper-skill wording. Features table lost the wrapper row for the same reason. The CLI itself is fully usable standalone; any downstream consumer wrapper is tracked elsewhere.
 
 ## Changelog
@@ -140,4 +141,6 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via browse
 - **ISC-18**: `rg -l "wine|heroic|legendary" ~/Projects/epic-fab/src/` — zero results in source code (README references are anti-deps, which is the point). Verified 2026-05-21T21:14 via rg.
 - **ISC-20**: `bun --version` — 1.3.11 ≥1.0. Verified during `bun install` 2026-05-21T21:14.
 - **ISC-15**: `rg "(accessToken|refreshToken).{0,40}(url|URL|\?)" src/` — zero matches (no token in URL construction). `rg "console\.(log|error).{0,200}token" src/` returns two hits, both inspected: `Authenticated as ${tokens.displayName}` (display name only) and `JSON.stringify(whoami(tokens))` (returns `{displayName, accountId}` only — `whoami()` does NOT expose access/refresh tokens). Verified 2026-05-21T21:55 via rg + code inspection.
+- **ISC-2**: `echo "" | epic-fab auth` — stdout printed the Epic login URL `https://www.epicgames.com/id/api/redirect?clientId=34a02cf8f4414e29b15921876da36f9a&responseType=code` and the prompt `Paste authorization code:`. On empty stdin the command exited cleanly with `auth failed: No authorization code provided`. URL + prompt halves both confirmed. End-to-end token exchange still requires Gerald's live login. Verified 2026-05-22T00:15 via Bash + epic-fab on PATH.
+- **ISC-13**: `gh repo create starkslabs/epic-fab --public --source=. --remote=origin --push` succeeded — repo live at https://github.com/StarksLabs/epic-fab, master branch tracking origin, all four commits pushed. Verified 2026-05-22T00:15 via gh + git ls-remote.
 
