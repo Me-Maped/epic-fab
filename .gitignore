@@ -1,0 +1,16 @@
+node_modules/
+bun.lockb
+*.log
+.env
+.env.local
+.DS_Store
+
+# Auth tokens never go in git
+auth.json
+*.token
+.epic-fab/
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
