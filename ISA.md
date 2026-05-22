@@ -4,10 +4,10 @@ slug: epic-fab
 task: Linux-native CLI for Epic Games / Fab.com asset library — no Launcher required
 effort: E3
 phase: build
-progress: 0/16
+progress: 5/19
 mode: standard
 started: 2026-05-21T21:05:00-05:00
-updated: 2026-05-21T21:05:00-05:00
+updated: 2026-05-21T21:22:00-05:00
 iteration: 1
 ---
 
@@ -50,11 +50,11 @@ Gerald types `epic-fab sync --project ~/Projects/MarsLoft/UE/MarsWorld` from a t
 
 ## Goal
 
-Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth device-code grant, lists every owned Fab asset, downloads any subset to a target directory (including bulk sync into a UE project's `Content/` tree), runs entirely on Linux without the Epic Launcher or Wine, ships as MIT-licensed open source at `github.com/starkslabs/epic-fab`, and wraps cleanly as a PAI skill at `~/.claude/skills/Fab/` for Gerald's MARS world building workflow.
+Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth device-code grant, lists every owned Fab asset, downloads any subset to a target directory (including bulk sync into a UE project's `Content/` tree), runs entirely on Linux without the Epic Launcher or Wine, and ships as MIT-licensed open source at `github.com/starkslabs/epic-fab`.
 
 ## Criteria
 
-- [ ] ISC-1: `epic-fab --help` prints usage with all 6 commands listed
+- [x] ISC-1: `epic-fab --help` prints usage with all 6 commands listed
 - [ ] ISC-2: `epic-fab auth` initiates Epic OAuth device-code flow, prints user code + verification URL
 - [ ] ISC-3: After user approves in browser, `epic-fab auth` writes tokens to `~/.config/epic-fab/auth.json` mode 600
 - [ ] ISC-4: `epic-fab whoami` returns the authenticated Epic account display name and ID
@@ -65,15 +65,15 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth 
 - [ ] ISC-9: Auth tokens refresh transparently when access token expires mid-session
 - [ ] ISC-10: `epic-fab logout` deletes `~/.config/epic-fab/auth.json` and confirms
 - [ ] ISC-11: A pulled Fab asset can be imported into the MARS world UE 5.7.4 project and renders in editor
-- [ ] ISC-12: PAI skill at `~/.claude/skills/Fab/` exists with SKILL.md and three workflows (PullAsset, SyncProject, BrowseLibrary)
+- [ ] ISC-12: [DROPPED — see Decisions 2026-05-21 containment]
 - [ ] ISC-13: Public GitHub repo at `github.com/starkslabs/epic-fab` exists with README + LICENSE + first commit
-- [ ] ISC-14: `bun typecheck` passes with zero errors, strict mode
+- [x] ISC-14: `bun typecheck` passes with zero errors, strict mode
 - [ ] ISC-15: Anti: no auth token appears in any URL query parameter or log line
 - [ ] ISC-16: Anti: no file inside the public repo references `~/.claude` private content (containment audit clean)
-- [ ] ISC-17: Anti: no Epic-proprietary code (Launcher binaries, signed Fab plugin DLLs) copied into the repo
-- [ ] ISC-18: Anti: no Wine, no Heroic, no Launcher protocol handler dependency
+- [x] ISC-17: Anti: no Epic-proprietary code (Launcher binaries, signed Fab plugin DLLs) copied into the repo
+- [x] ISC-18: Anti: no Wine, no Heroic, no Launcher protocol handler dependency
 - [ ] ISC-19: Antecedent: Gerald authorizes the device-code grant once with his Epic account
-- [ ] ISC-20: Antecedent: Bun ≥1.0 installed on host
+- [x] ISC-20: Antecedent: Bun ≥1.0 installed on host
 
 ## Test Strategy
 
@@ -90,7 +90,6 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth 
 | ISC-9 | Behavior | Force-expire token, next call still succeeds | yes | Bash + manual |
 | ISC-10 | Filesystem | After `logout`, `auth.json` is gone | absent | Bash |
 | ISC-11 | UE editor | Imported asset visible in Content Browser, no fatal log | visible | Interceptor / manual |
-| ISC-12 | Filesystem | `~/.claude/skills/Fab/SKILL.md` exists + 3 workflow files | all exist | Bash |
 | ISC-13 | HTTP | `curl https://github.com/starkslabs/epic-fab` returns 200 | 200 | curl |
 | ISC-14 | Build | `bun run typecheck` exits 0 | exit 0 | Bash |
 | ISC-15 | Audit | grep all log/URL output for token substring | zero matches | Bash + grep |
@@ -123,12 +122,19 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via OAuth 
 - **2026-05-21 — Path A/C rejected, custom CLI chosen:** Initial three-path framing (transplant from Mac/Windows, browser+manual, custom in-editor plugin) refined into a fourth path — standalone Linux CLI — after Gerald clarified the real driver was Epic library access for MARS world building plus a contribution opportunity for PAI's founder. CLI delivers 90% of in-editor value at 20% of the build effort and is the right primitive for batch pipelines.
 - **2026-05-21 — Repo home `~/Projects/epic-fab/` standalone:** Rejected `~/.claude/PAI/Tools/epic-fab/` (matches `meshroom-mcp` precedent but introduces containment risk every release). Standalone repo with `bun link` glue gives clean separation.
 - **2026-05-21 — Engineer deferred until Research returns:** Coding modules need verified Epic OAuth endpoint surface + Fab API surface before draft. Spawning Engineer with wrong endpoints would burn the delegation budget. Sequencing: Research first, Engineer second.
+- **2026-05-21 — Containment: PAI skill ISC dropped from this ISA.** Original ISC-12 ("PAI skill at `~/.claude/skills/Fab/` exists with SKILL.md and three workflows") tombstoned. Why: this ISA is the system of record for the *public, PAI-agnostic* `epic-fab` repo. Anything referencing `~/.claude` is private-side concern and belongs in PAI's own tracking. The PAI integration plan lives at `<PAI-private>/USER/PROJECTS/epic-fab-pai-integration.md`. Goal section also stripped of "wraps cleanly as a PAI skill" wording. Features table lost the `PaiSkill` row for the same reason. The CLI itself is fully usable standalone; the skill wrapper is a downstream consumer.
 
 ## Changelog
 
 - **conjectured:** "Build the Fab plugin from UE source" is a viable Linux install path. **refuted_by:** Fab plugin source is launcher-exclusive closed binary; Epic's public UE GitHub does not contain it. Verified by `find` over Engine/Plugins/ in Gerald's source-included UE 5.7.4 drop — zero Fab references. **learned:** "build from source" framing is misleading whenever the source isn't public; always verify source availability before recommending source-build paths. **criterion_now:** Anti-criterion ISC-17 (no Epic-proprietary code copied into repo) — replaces the original "compile Fab module" framing entirely.
 - **conjectured:** The right contribution shape is an in-editor UE plugin (in line with the original "plugin" framing). **refuted_by:** A CLI delivers 90% of the asset-pipeline value at 20% of the effort, and gives batch capability the in-editor plugin couldn't match. **learned:** When the user's stated artifact (a plugin) and underlying goal (asset access for world building) diverge, optimize for the goal — propose the lighter primitive. **criterion_now:** ISC-7, ISC-8 (download + sync commands) — replace the never-defined "Fab browser opens in editor" criterion.
+- **conjectured:** The PAI skill wrapper and the standalone CLI could share a single ISA. **refuted_by:** The CLI's ISA is the system of record for a *public* repo; any reference to private paths (`~/.claude`, `~/.config/epic-fab`) leaks the private-side surface into a public artifact, violating containment. **learned:** When a project has both a public face and a private consumer, give them separate ISAs and treat the public one as the boundary — its ISCs must be verifiable without any private-side context. **criterion_now:** ISC-12 tombstoned; integration tracked in private PAI-side doc instead. Anti-criterion ISC-16 (no `/.claude` references in repo) now passes cleanly.
 
 ## Verification
 
-(Empty — phase has just entered build. Verification entries appear as ISCs flip [ ] → [x].)
+- **ISC-1**: `bun run src/cli.ts --help` — stdout contains all 6 commands (auth, list, download, sync, whoami, logout). Verified 2026-05-21T21:14 via Bash.
+- **ISC-14**: `bun run typecheck` — `tsc --noEmit` exit 0, no diagnostics. Verified 2026-05-21T21:14 via Bash.
+- **ISC-17**: `find ~/Projects/epic-fab -type f \( -name "*.dll" -o -name "*.exe" \)` — zero results. Verified 2026-05-21T21:14 via Bash.
+- **ISC-18**: `rg -l "wine|heroic|legendary" ~/Projects/epic-fab/src/` — zero results in source code (README references are anti-deps, which is the point). Verified 2026-05-21T21:14 via rg.
+- **ISC-20**: `bun --version` — 1.3.11 ≥1.0. Verified during `bun install` 2026-05-21T21:14.
+

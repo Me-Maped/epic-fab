@@ -19,7 +19,7 @@ Options:
 const VERSION = "0.1.0";
 
 async function main(argv: string[]): Promise<number> {
-  const [command, ...rest] = argv;
+  const command = argv[0];
 
   if (!command || command === "-h" || command === "--help") {
     console.log(USAGE);
