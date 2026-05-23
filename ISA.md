@@ -75,6 +75,21 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via browse
 - [ ] ISC-19: Antecedent: Gerald completes the browser login + authorization-code paste at least once
 - [x] ISC-20: Antecedent: Bun ≥1.0 installed on host
 
+### Decoration ISCs (added 2026-05-23)
+
+- [ ] ISC-21: Hero wordmark image exists at `docs/assets/banner.svg`, terminal aesthetic, no copyrighted IP
+- [ ] ISC-22: README.md uses `<picture>` element for the hero (dark-mode-aware pattern, PAI parity)
+- [ ] ISC-23: README.md contains ≥4 badge images from `img.shields.io` (license, TypeScript, Bun, GitHub stars/last-commit)
+- [ ] ISC-24: README.md uses a `readme-typing-svg.demolab.com` typing SVG with ≥3 cycling taglines
+- [ ] ISC-25: README.md contains ≥1 real terminal screenshot of `epic-fab list` running against the live Fab API
+- [ ] ISC-26: README.md sections include at minimum: What it is, Quickstart, Features, Commands, How it works, License
+- [ ] ISC-27: Section headers use emoji prefixes (`🚀`, `📦`, `❓`, etc. — PAI visual parity)
+- [ ] ISC-28: Anti: no generic AI-aesthetic stock-image hero (no abstract glow gradients with no narrative meaning)
+- [ ] ISC-29: Anti: no copyrighted IP imagery in any asset (no Stack O Bot character, no UE official logo, no Epic trademark)
+- [ ] ISC-30: Antecedent: `docs/assets/` directory created and tracked in git
+- [ ] ISC-31: All assets committed to the repo (not external URLs that could rot)
+- [ ] ISC-32: GitHub renders the README cleanly — `curl https://github.com/starkslabs/epic-fab` returns 200 with hero image visible in the page response
+
 ## Test Strategy
 
 | ISC | Type | Check | Threshold | Tool |

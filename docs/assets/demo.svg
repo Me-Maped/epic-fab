@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 620" role="img" aria-label="Terminal demo: epic-fab list output">
+  <defs>
+    <linearGradient id="winbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#161b22"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .mono { font-family: "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Monaco, "Courier New", monospace; font-size: 14px; }
+      .prompt { fill: #7ee787; }
+      .cmd    { fill: #e6edf3; }
+      .flag   { fill: #d2a8ff; }
+      .key    { fill: #79c0ff; }
+      .str    { fill: #a5d6ff; }
+      .punct  { fill: #8b949e; }
+      .comment{ fill: #6e7681; font-style: italic; }
+      .ok     { fill: #7ee787; }
+      .title  { fill: #c9d1d9; font-size: 13px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <!-- window chrome -->
+  <rect x="20" y="20" width="940" height="580" rx="10" fill="url(#winbg)" stroke="#30363d" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="20" y="20" width="940" height="36" rx="10" fill="#21262d"/>
+  <rect x="20" y="46" width="940" height="10" fill="#21262d"/>
+  <circle cx="44" cy="38" r="6" fill="#ff5f57"/>
+  <circle cx="64" cy="38" r="6" fill="#febc2e"/>
+  <circle cx="84" cy="38" r="6" fill="#28c840"/>
+  <text x="490" y="42" text-anchor="middle" class="mono title">~/Projects/MarsLoft &#8212; epic-fab</text>
+
+  <!-- body lines -->
+  <g class="mono">
+    <text x="40" y="92"><tspan class="prompt">starkslabs@arch</tspan><tspan class="punct">:</tspan><tspan class="key">~</tspan><tspan class="punct">$</tspan> <tspan class="cmd">epic-fab</tspan> <tspan class="cmd">list</tspan> <tspan class="flag">|</tspan> <tspan class="cmd">head</tspan> <tspan class="flag">-20</tspan></text>
+
+    <text x="40" y="124"><tspan class="punct">[</tspan></text>
+    <text x="40" y="146"><tspan class="punct">  {</tspan></text>
+    <text x="40" y="168"><tspan class="punct">    </tspan><tspan class="key">"id"</tspan><tspan class="punct">:</tspan> <tspan class="str">"6e2d4326614145e1b0cbc7b9de05f058"</tspan><tspan class="punct">,</tspan></text>
+    <text x="40" y="190"><tspan class="punct">    </tspan><tspan class="key">"title"</tspan><tspan class="punct">:</tspan> <tspan class="str">"LENS FLARE VFX | ADVANCED SPRITE BASED LENS FLARES"</tspan><tspan class="punct">,</tspan></text>
+    <text x="40" y="212"><tspan class="punct">    </tspan><tspan class="key">"type"</tspan><tspan class="punct">:</tspan> <tspan class="str">"ASSET_PACK"</tspan></text>
+    <text x="40" y="234"><tspan class="punct">  },</tspan></text>
+    <text x="40" y="256"><tspan class="punct">  {</tspan></text>
+    <text x="40" y="278"><tspan class="punct">    </tspan><tspan class="key">"id"</tspan><tspan class="punct">:</tspan> <tspan class="str">"aa97448ff12f4b388a67bb7e7b2e4941"</tspan><tspan class="punct">,</tspan></text>
+    <text x="40" y="300"><tspan class="punct">    </tspan><tspan class="key">"title"</tspan><tspan class="punct">:</tspan> <tspan class="str">"Megaplants: European Beech"</tspan><tspan class="punct">,</tspan></text>
+    <text x="40" y="322"><tspan class="punct">    </tspan><tspan class="key">"type"</tspan><tspan class="punct">:</tspan> <tspan class="str">"ASSET_PACK"</tspan></text>
+    <text x="40" y="344"><tspan class="punct">  },</tspan></text>
+    <text x="40" y="366"><tspan class="punct">  {</tspan></text>
+    <text x="40" y="388"><tspan class="punct">    </tspan><tspan class="key">"id"</tspan><tspan class="punct">:</tspan> <tspan class="str">"cad06e4a3df14200a04b4865e6252b40"</tspan><tspan class="punct">,</tspan></text>
+    <text x="40" y="410"><tspan class="punct">    </tspan><tspan class="key">"title"</tspan><tspan class="punct">:</tspan> <tspan class="str">"Stack O Bot"</tspan><tspan class="punct">,</tspan></text>
+    <text x="40" y="432"><tspan class="punct">    </tspan><tspan class="key">"type"</tspan><tspan class="punct">:</tspan> <tspan class="str">"COMPLETE_PROJECT"</tspan></text>
+    <text x="40" y="454"><tspan class="punct">  }</tspan></text>
+    <text x="40" y="476"><tspan class="punct">]</tspan></text>
+
+    <text x="40" y="512"><tspan class="prompt">starkslabs@arch</tspan><tspan class="punct">:</tspan><tspan class="key">~</tspan><tspan class="punct">$</tspan> <tspan class="cmd">epic-fab</tspan> <tspan class="cmd">download</tspan> <tspan class="str">cad06e4a...</tspan> <tspan class="flag">--into</tspan> <tspan class="str">/tmp/fab</tspan></text>
+    <text x="40" y="540"><tspan class="comment"># 1.6 GB &#183; 1988 files &#183; every SHA1 verified &#183; OK</tspan></text>
+    <text x="40" y="568"><tspan class="prompt">starkslabs@arch</tspan><tspan class="punct">:</tspan><tspan class="key">~</tspan><tspan class="punct">$</tspan> <tspan class="ok">_</tspan></text>
+  </g>
+</svg>
