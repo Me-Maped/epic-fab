@@ -467,9 +467,12 @@ function readFileManifestList(reader: Reader): FileEntry[] {
     return {
       filename: f.filename,
       fileSize,
-      // FileHash on disk is little-endian SHA1 (matches the chunk reassembly hash check).
-      // Reverse to canonical big-endian hex so downstream SHA1 comparisons line up.
-      fileHash: bytesToHex(reverseBytes(f.fileHash)),
+      // Verified against live Stack O Bot manifest 2026-05-23: Epic stores FileHash as
+      // canonical SHA1 bytes (big-endian, the same order as the standard hex digest).
+      // The earlier comment claiming little-endian and reversing was incorrect — verified by
+      // comparing got/want hashes on a real download: reassembled chunks produced the same
+      // bytes Epic published, but reversing turned the canonical hash into garbage.
+      fileHash: bytesToHex(f.fileHash),
       chunkParts: f.chunkParts,
     };
   });

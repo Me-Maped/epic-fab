@@ -59,16 +59,26 @@ interface FabLibraryResponse {
   results?: ReadonlyArray<Record<string, unknown>>;
 }
 
-interface FabManifestPointer {
-  manifest_url?: string;
+// Verified Fab manifest response 2026-05-23: downloadInfo is an array of artifact entries
+// (typically one per asset), each carrying parallel arrays of signed manifest URLs +
+// distribution point base URLs across multiple CDNs (CloudFront, Akamai, Fastly).
+interface FabDistributionPoint {
   manifestUrl?: string;
-  distribution_point_base_url?: string;
-  distributionPointBaseUrl?: string;
+  manifest_url?: string;
+  signatureExpiration?: string;
+}
+
+interface FabManifestArtifact {
+  artifactId?: string;
+  buildVersion?: string;
+  manifestHash?: string;
+  distributionPoints?: ReadonlyArray<FabDistributionPoint>;
+  distributionPointBaseUrls?: ReadonlyArray<string>;
 }
 
 interface FabManifestResponse {
-  download_info?: ReadonlyArray<FabManifestPointer>;
-  downloadInfo?: ReadonlyArray<FabManifestPointer>;
+  downloadInfo?: ReadonlyArray<FabManifestArtifact>;
+  download_info?: ReadonlyArray<FabManifestArtifact>;
 }
 
 function authHeaders(tokens: AuthTokens): Record<string, string> {
@@ -87,15 +97,70 @@ function stringField(record: Record<string, unknown>, ...candidates: string[]): 
   return "";
 }
 
+// Verified against live Fab response 2026-05-23: assets carry an array of `projectVersions`,
+// each with an `artifactId` and an `engineVersions: ["UE_5.7", ...]` list. Multi-engine assets
+// (e.g., Stack O Bot) ship 8 separate projectVersions; single-engine assets ship 1.
+interface ProjectVersion {
+  artifactId: string;
+  engineVersions: string[];
+}
+
+function projectVersions(record: Record<string, unknown>): ProjectVersion[] {
+  const raw = record.projectVersions;
+  if (!Array.isArray(raw)) return [];
+  const result: ProjectVersion[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const obj = entry as Record<string, unknown>;
+    const artifactId = typeof obj.artifactId === "string" ? obj.artifactId : "";
+    if (artifactId.length === 0) continue;
+    const engineVersions = Array.isArray(obj.engineVersions)
+      ? obj.engineVersions.filter((v): v is string => typeof v === "string")
+      : [];
+    result.push({ artifactId, engineVersions });
+  }
+  return result;
+}
+
+// UE_5.7 → 507 (major*100 + minor), for ordering. Returns -1 on unparseable strings.
+function parseEngineVersion(s: string): number {
+  const match = s.match(/^UE_(\d+)\.(\d+)/);
+  if (!match) return -1;
+  return parseInt(match[1] ?? "0", 10) * 100 + parseInt(match[2] ?? "0", 10);
+}
+
+function pickArtifactId(versions: ProjectVersion[], preferredEngine: string): string {
+  // Exact match wins (e.g., asset offers UE_5.7 and we target UE_5.7).
+  const exact = versions.find((v) => v.engineVersions.includes(preferredEngine));
+  if (exact) return exact.artifactId;
+  // Otherwise highest version wins. UE generally opens older content forward-compatibly,
+  // so the highest available is the safest fallback.
+  const target = parseEngineVersion(preferredEngine);
+  let best: ProjectVersion | undefined;
+  let bestScore = -1;
+  for (const v of versions) {
+    const maxVersion = v.engineVersions.reduce((acc, ev) => Math.max(acc, parseEngineVersion(ev)), -1);
+    // Prefer versions <= target (forward-compatible) but fall back to anything if none match.
+    const score = maxVersion <= target ? maxVersion : maxVersion - 1000;
+    if (score > bestScore) {
+      bestScore = score;
+      best = v;
+    }
+  }
+  return best?.artifactId ?? "";
+}
+
 function summarizeLibraryItem(record: Record<string, unknown>): FabAssetSummary {
-  // docs/api-surface.md §3.2 — field names [UNCERTAIN] until a real library call confirms them.
-  // The candidates below are the names observed across community sources (egs-api-rs struct,
-  // Subtixx gist, wikiti gist). Verify against a live response before relying on any single one.
+  // Field names verified against live Fab response 2026-05-23 (LiminalGlitch library).
+  // `assetId` and `assetNamespace` are the canonical top-level keys; older candidate names
+  // (asset_id, namespace, etc.) kept as defensive fallbacks for forward compatibility.
   return {
-    id: stringField(record, "asset_id", "assetId", "uid", "artifact_id", "artifactId"),
-    title: stringField(record, "title", "name"),
-    type: stringField(record, "distribution_method", "distributionMethod", "category", "type"),
-    ownedAt: stringField(record, "added_at", "addedAt", "owned_at", "ownedAt"),
+    id: stringField(record, "assetId", "asset_id", "uid"),
+    title: stringField(record, "title", "name", "description"),
+    type: stringField(record, "distributionMethod", "distribution_method", "listingType", "category"),
+    // `ownedAt`/purchase date is not exposed on the /ue/library endpoint as of 2026-05-23.
+    // Field kept on the type for forward-compat in case Fab adds it later.
+    ownedAt: stringField(record, "addedAt", "added_at", "ownedAt", "owned_at"),
     raw: record,
   };
 }
@@ -129,8 +194,12 @@ export async function listLibrary(tokens: AuthTokens): Promise<FabAssetSummary[]
   return items;
 }
 
-export async function getAsset(tokens: AuthTokens, assetId: string): Promise<FabAssetDetail> {
-  // Library results carry the artifact_id + namespace needed for the manifest call. We re-walk
+export async function getAsset(
+  tokens: AuthTokens,
+  assetId: string,
+  engineVersion: string = "UE_5.7",
+): Promise<FabAssetDetail> {
+  // Library results carry the artifact + namespace needed for the manifest call. We re-walk
   // the library to find the matching record rather than caching, because the listing is cheap
   // and Fab's TTL on the manifest pointers makes stale lookups risky anyway.
   const library = await listLibrary(tokens);
@@ -139,13 +208,15 @@ export async function getAsset(tokens: AuthTokens, assetId: string): Promise<Fab
     throw new Error(`Asset ${assetId} not found in library`);
   }
 
-  // docs/api-surface.md §3.4 — manifest call requires artifact_id (path) + item_id + namespace (body).
-  // Both field names are [UNCERTAIN]; we try the most-cited names first.
-  const artifactId = stringField(match.raw, "artifact_id", "artifactId", "asset_id", "assetId");
-  const namespace = stringField(match.raw, "namespace", "ns");
+  // Verified Fab API 2026-05-23: namespace lives at `assetNamespace` (top-level), artifactId
+  // lives nested in `projectVersions[].artifactId`. Multi-engine assets carry one entry per
+  // UE version; we pick the artifact matching `engineVersion` (defaulting to UE_5.7).
+  const namespace = stringField(match.raw, "assetNamespace", "namespace", "ns");
+  const versions = projectVersions(match.raw);
+  const artifactId = pickArtifactId(versions, engineVersion);
   if (artifactId.length === 0 || namespace.length === 0) {
     throw new Error(
-      `Asset ${assetId} lacks artifact_id or namespace in library response — see docs/api-surface.md §3.2 [UNCERTAIN] for field-name candidates`,
+      `Asset ${assetId} lacks artifactId or assetNamespace in library response (found ${versions.length} project versions, namespace=${namespace ? "ok" : "missing"})`,
     );
   }
 
@@ -168,17 +239,29 @@ export async function getAsset(tokens: AuthTokens, assetId: string): Promise<Fab
   }
 
   const manifestPayload = (await manifestResponse.json()) as FabManifestResponse;
-  const rawPointers = manifestPayload.download_info ?? manifestPayload.downloadInfo ?? [];
-  const manifestPointers = rawPointers
-    .map((entry) => ({
-      manifestUrl: entry.manifest_url ?? entry.manifestUrl ?? "",
-      distributionBaseUrl: entry.distribution_point_base_url ?? entry.distributionPointBaseUrl ?? "",
-    }))
-    .filter((entry) => entry.manifestUrl.length > 0);
+  const artifacts = manifestPayload.downloadInfo ?? manifestPayload.download_info ?? [];
+
+  // Each downloadInfo entry holds parallel arrays: distributionPoints[i].manifestUrl pairs
+  // with distributionPointBaseUrls[i] (same CDN, same index). We flatten across all artifacts
+  // and all CDNs into a single pointer list — the first usable one drives the download, and
+  // download.ts can later fall back to subsequent CDNs if one returns a stale signature.
+  const manifestPointers: Array<{ manifestUrl: string; distributionBaseUrl: string }> = [];
+  for (const artifact of artifacts) {
+    const points = artifact.distributionPoints ?? [];
+    const baseUrls = artifact.distributionPointBaseUrls ?? [];
+    for (let i = 0; i < points.length; i++) {
+      const point = points[i];
+      const manifestUrl = point?.manifestUrl ?? point?.manifest_url ?? "";
+      const distributionBaseUrl = baseUrls[i] ?? "";
+      if (manifestUrl.length > 0 && distributionBaseUrl.length > 0) {
+        manifestPointers.push({ manifestUrl, distributionBaseUrl });
+      }
+    }
+  }
 
   if (manifestPointers.length === 0) {
     throw new Error(
-      `Fab manifest response for ${assetId} contained no manifest URLs — see docs/api-surface.md §3.4 (response shape [UNCERTAIN])`,
+      `Fab manifest response for ${assetId} contained no manifest URLs (received ${artifacts.length} artifact entries)`,
     );
   }
 
