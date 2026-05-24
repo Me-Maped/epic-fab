@@ -3,36 +3,31 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/banner.svg">
   <source media="(prefers-color-scheme: light)" srcset="./docs/assets/banner.svg">
-  <img alt="epic-fab — your Epic Games library, on Linux" src="./docs/assets/banner.svg" width="900">
+  <img alt="Epic-Fab — Best of both — Epic Games library + Linux-native CLI." src="./docs/assets/banner.svg" width="900">
 </picture>
 
 <br/>
 
-# epic-fab
-
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=22&pause=1100&color=58A6FF&center=true&vCenter=true&width=700&lines=Your+Epic+library%2C+on+Linux.;No+launcher.+No+Wine.+No+compromises.;Browse.+Download.+Sync.+Done.;MIT+licensed.+Bun+%2B+TypeScript.+Forever+yours.)](https://github.com/starkslabs/epic-fab)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=22&pause=1100&color=58A6FF&center=true&vCenter=true&width=700&lines=Your%20Epic%20library%2C%20on%20Linux.;No%20launcher.%20No%20Wine.%20No%20compromises.;Browse.%20Download.%20Sync.%20Done.;MIT%20licensed.%20Bun%20%2B%20TypeScript.%20Forever%20yours.)](https://github.com/StarksLabs/epic-fab)
 
 <br/>
 
 <!-- Project Health -->
-![License](https://img.shields.io/github/license/starkslabs/epic-fab?style=flat&color=f0883e)
-![Last Commit](https://img.shields.io/github/last-commit/starkslabs/epic-fab?style=flat&logo=github&color=58a6ff)
-![Stars](https://img.shields.io/github/stars/starkslabs/epic-fab?style=flat&logo=github&color=7ee787)
-![Issues](https://img.shields.io/github/issues/starkslabs/epic-fab?style=flat&logo=github&color=d2a8ff)
+![License](https://img.shields.io/github/license/StarksLabs/epic-fab?style=flat&color=f0883e)
+![Last Commit](https://img.shields.io/github/last-commit/StarksLabs/epic-fab?style=flat&logo=github&color=58a6ff)
+![Stars](https://img.shields.io/github/stars/StarksLabs/epic-fab?style=flat&logo=github&color=7ee787)
+![Issues](https://img.shields.io/github/issues/StarksLabs/epic-fab?style=flat&logo=github&color=d2a8ff)
 
 <!-- Tech -->
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white)
 ![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-FBF0DF?style=flat&logo=bun&logoColor=black)
 ![Linux](https://img.shields.io/badge/Linux-native-FCC624?style=flat&logo=linux&logoColor=black)
 ![Unreal Engine](https://img.shields.io/badge/Unreal%20Engine-5.x-313131?style=flat&logo=unrealengine&logoColor=white)
+![Epic Games](https://img.shields.io/badge/Epic%20Games-compatible-313131?style=flat&logo=epicgames&logoColor=white)
 
 <br/>
 
-**Your Epic Games / Fab.com asset library on Linux — without the Launcher, without Wine, without compromise.**
-
-<br/>
-
-<img alt="epic-fab CLI demo" src="./docs/assets/demo.svg" width="900">
+# Epic-Fab
 
 </div>
 
@@ -112,6 +107,26 @@ Under the hood: Epic's binary manifest format (magic `0x44BEC00C`), chunk databa
 
 ---
 
+## 🤝 Contributing
+
+PRs welcome — especially around: additional engine-version coverage, JSON-manifest support for legacy assets, container/Nix packaging, integration test fixtures from real downloads. See [`ISA.md`](./ISA.md) for the project's living ideal-state articulation — that's the source of truth for what "done" looks like.
+
+---
+
+## 🙏 Acknowledgments
+
+- **[Legendary](https://github.com/derrod/legendary)** by [@derrod](https://github.com/derrod) — the canonical reference for Epic's OAuth and binary manifest format. `epic-fab`'s parser is ported from Legendary's layout.
+- **[egs-api-rs](https://github.com/AchetaGames/egs-api-rs)** — the most complete recent Rust integration for the Fab side of Epic's API surface.
+- **[PAI ecosystem](https://github.com/danielmiessler/PAI)** — built as a contribution to Daniel Miessler's framework for personal AI infrastructure.
+
+---
+
+## 📜 License
+
+[MIT](./LICENSE) © 2026 [Starks Labs](https://github.com/starkslabs)
+
+---
+
 ## ❓ FAQ
 
 <details>
@@ -151,26 +166,8 @@ No. Independent open-source tool. Talks to public Epic / Fab endpoints. Not endo
 
 ---
 
-## 🤝 Contributing
-
-PRs welcome — especially around: additional engine-version coverage, JSON-manifest support for legacy assets, container/Nix packaging, integration test fixtures from real downloads. See [`ISA.md`](./ISA.md) for the project's living ideal-state articulation — that's the source of truth for what "done" looks like.
-
----
-
-## 🙏 Acknowledgments
-
-- **[Legendary](https://github.com/derrod/legendary)** by [@derrod](https://github.com/derrod) — the canonical reference for Epic's OAuth and binary manifest format. `epic-fab`'s parser is ported from Legendary's layout.
-- **[egs-api-rs](https://github.com/AchetaGames/egs-api-rs)** — the most complete recent Rust integration for the Fab side of Epic's API surface.
-- **[PAI ecosystem](https://github.com/danielmiessler/PAI)** — built as a contribution to Daniel Miessler's framework for personal AI infrastructure.
-
----
-
-## 📜 License
-
-[MIT](./LICENSE) © 2026 [Starks Labs](https://github.com/starkslabs)
-
 <div align="center">
 
-<sub>Built with <a href="https://bun.sh">Bun</a> · <a href="https://www.typescriptlang.org">TypeScript</a> · for Linux first, Linux always.</sub>
+<sub>Built with Bun · TypeScript · for Linux first, Linux always.</sub>
 
 </div>
