@@ -13,17 +13,20 @@
 <br/>
 
 <!-- Project Health -->
-![License](https://img.shields.io/github/license/StarksLabs/epic-fab?style=flat&color=f0883e)
-![Last Commit](https://img.shields.io/github/last-commit/StarksLabs/epic-fab?style=flat&logo=github&color=58a6ff)
-![Stars](https://img.shields.io/github/stars/StarksLabs/epic-fab?style=flat&logo=github&color=7ee787)
-![Issues](https://img.shields.io/github/issues/StarksLabs/epic-fab?style=flat&logo=github&color=d2a8ff)
+[![License](https://img.shields.io/github/license/StarksLabs/epic-fab?style=flat&color=f0883e)](https://github.com/StarksLabs/epic-fab/blob/master/LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/StarksLabs/epic-fab?style=flat&logo=github&color=58a6ff)](https://github.com/StarksLabs/epic-fab/commits)
+[![Stars](https://img.shields.io/github/stars/StarksLabs/epic-fab?style=flat&logo=github&color=7ee787)](https://github.com/StarksLabs/epic-fab/stargazers)
+[![Issues](https://img.shields.io/github/issues/StarksLabs/epic-fab?style=flat&logo=github&color=d2a8ff)](https://github.com/StarksLabs/epic-fab/issues)
 
 <!-- Tech -->
-![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white)
-![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-FBF0DF?style=flat&logo=bun&logoColor=black)
-![Linux](https://img.shields.io/badge/Linux-native-FCC624?style=flat&logo=linux&logoColor=black)
-![Unreal Engine](https://img.shields.io/badge/Unreal%20Engine-5.x-313131?style=flat&logo=unrealengine&logoColor=white)
-![Epic Games](https://img.shields.io/badge/Epic%20Games-compatible-313131?style=flat&logo=epicgames&logoColor=white)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-FBF0DF?style=flat&logo=bun&logoColor=black)](https://bun.sh/)
+[![Linux](https://img.shields.io/badge/Linux-native-FCC624?style=flat&logo=linux&logoColor=black)](https://www.linux.org/)
+[![Unreal Engine](https://img.shields.io/badge/Unreal%20Engine-5.x-313131?style=flat&logo=unrealengine&logoColor=white)](https://www.unrealengine.com/)
+[![Epic Games](https://img.shields.io/badge/Epic%20Games-compatible-313131?style=flat&logo=epicgames&logoColor=white)](https://store.epicgames.com/)
+[![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-D97757?style=flat&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude-code)
+[![Built with PAI](https://img.shields.io/badge/Built%20with-PAI-8B5CF6?style=flat&logo=github&logoColor=white)](https://github.com/danielmiessler/PAI)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/cmTXqECZ)
 
 <br/>
 
