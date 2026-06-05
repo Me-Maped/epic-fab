@@ -1,6 +1,6 @@
 {
   "name": "epic-fab",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Linux-native CLI for browsing and downloading your Epic Games / Fab.com asset library. Works without the Epic Games Launcher.",
   "type": "module",
   "bin": {
