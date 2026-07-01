@@ -122,32 +122,69 @@ function projectVersions(record: Record<string, unknown>): ProjectVersion[] {
   return result;
 }
 
+export const ENGINE_VERSION_RE = /^UE_\d+\.\d+$/;
+
 // UE_5.7 → 507 (major*100 + minor), for ordering. Returns -1 on unparseable strings.
-function parseEngineVersion(s: string): number {
+export function parseEngineVersion(s: string): number {
   const match = s.match(/^UE_(\d+)\.(\d+)/);
   if (!match) return -1;
   return parseInt(match[1] ?? "0", 10) * 100 + parseInt(match[2] ?? "0", 10);
 }
 
-function pickArtifactId(versions: ProjectVersion[], preferredEngine: string): string {
+export interface EngineResolution {
+  artifactId: string;
+  matchType: "exact" | "fallback" | "higher-only" | "none";
+  requested: string;
+  selected: string;
+  available: string[];
+}
+
+function pickArtifact(versions: ProjectVersion[], preferredEngine: string): EngineResolution {
+  const available = [...new Set(versions.flatMap((v) => v.engineVersions))].sort(
+    (a, b) => parseEngineVersion(a) - parseEngineVersion(b),
+  );
+
   // Exact match wins (e.g., asset offers UE_5.7 and we target UE_5.7).
   const exact = versions.find((v) => v.engineVersions.includes(preferredEngine));
-  if (exact) return exact.artifactId;
-  // Otherwise highest version wins. UE generally opens older content forward-compatibly,
-  // so the highest available is the safest fallback.
+  if (exact) {
+    return { artifactId: exact.artifactId, matchType: "exact", requested: preferredEngine, selected: preferredEngine, available };
+  }
+
   const target = parseEngineVersion(preferredEngine);
-  let best: ProjectVersion | undefined;
-  let bestScore = -1;
+
+  // Try versions <= target first (forward-compatible — UE opens older content fine).
+  let bestLower: ProjectVersion | undefined;
+  let bestLowerScore = -Infinity;
+  // Track versions > target separately.
+  let bestHigher: ProjectVersion | undefined;
+  let bestHigherScore = Infinity;
+
   for (const v of versions) {
     const maxVersion = v.engineVersions.reduce((acc, ev) => Math.max(acc, parseEngineVersion(ev)), -1);
-    // Prefer versions <= target (forward-compatible) but fall back to anything if none match.
-    const score = maxVersion <= target ? maxVersion : maxVersion - 1000;
-    if (score > bestScore) {
-      bestScore = score;
-      best = v;
+    if (maxVersion <= target) {
+      if (maxVersion > bestLowerScore) {
+        bestLowerScore = maxVersion;
+        bestLower = v;
+      }
+    } else {
+      if (maxVersion < bestHigherScore) {
+        bestHigherScore = maxVersion;
+        bestHigher = v;
+      }
     }
   }
-  return best?.artifactId ?? "";
+
+  if (bestLower) {
+    const selected = bestLower.engineVersions.reduce((a, b) => (parseEngineVersion(a) > parseEngineVersion(b) ? a : b));
+    return { artifactId: bestLower.artifactId, matchType: "fallback", requested: preferredEngine, selected, available };
+  }
+
+  if (bestHigher) {
+    const selected = bestHigher.engineVersions.reduce((a, b) => (parseEngineVersion(a) < parseEngineVersion(b) ? a : b));
+    return { artifactId: bestHigher.artifactId, matchType: "higher-only", requested: preferredEngine, selected, available };
+  }
+
+  return { artifactId: "", matchType: "none", requested: preferredEngine, selected: "", available };
 }
 
 function summarizeLibraryItem(record: Record<string, unknown>): FabAssetSummary {
@@ -194,31 +231,42 @@ export async function listLibrary(tokens: AuthTokens): Promise<FabAssetSummary[]
   return items;
 }
 
-export async function getAsset(
+export interface ResolvedAsset {
+  summary: FabAssetSummary;
+  namespace: string;
+  resolution: EngineResolution;
+}
+
+export async function resolveAsset(
   tokens: AuthTokens,
   assetId: string,
   engineVersion: string = "UE_5.7",
-): Promise<FabAssetDetail> {
-  // Library results carry the artifact + namespace needed for the manifest call. We re-walk
-  // the library to find the matching record rather than caching, because the listing is cheap
-  // and Fab's TTL on the manifest pointers makes stale lookups risky anyway.
+): Promise<ResolvedAsset> {
   const library = await listLibrary(tokens);
   const match = library.find((item) => item.id === assetId);
   if (!match) {
     throw new Error(`Asset ${assetId} not found in library`);
   }
 
-  // Verified Fab API 2026-05-23: namespace lives at `assetNamespace` (top-level), artifactId
-  // lives nested in `projectVersions[].artifactId`. Multi-engine assets carry one entry per
-  // UE version; we pick the artifact matching `engineVersion` (defaulting to UE_5.7).
   const namespace = stringField(match.raw, "assetNamespace", "namespace", "ns");
   const versions = projectVersions(match.raw);
-  const artifactId = pickArtifactId(versions, engineVersion);
-  if (artifactId.length === 0 || namespace.length === 0) {
+  const resolution = pickArtifact(versions, engineVersion);
+
+  if (namespace.length === 0) {
     throw new Error(
-      `Asset ${assetId} lacks artifactId or assetNamespace in library response (found ${versions.length} project versions, namespace=${namespace ? "ok" : "missing"})`,
+      `Asset ${assetId} lacks assetNamespace in library response`,
     );
   }
+
+  return { summary: match, namespace, resolution };
+}
+
+export async function fetchAssetDetail(
+  tokens: AuthTokens,
+  resolved: ResolvedAsset,
+): Promise<FabAssetDetail> {
+  const { summary: match, namespace, resolution } = resolved;
+  const { artifactId } = resolution;
 
   const manifestUrl = `${FAB_HOST}/e/artifacts/${encodeURIComponent(artifactId)}/manifest`;
   const manifestResponse = await fetch(manifestUrl, {
@@ -235,7 +283,7 @@ export async function getAsset(
   });
 
   if (!manifestResponse.ok) {
-    throw new Error(`Fab manifest POST failed for ${assetId}: HTTP ${manifestResponse.status}`);
+    throw new Error(`Fab manifest POST failed for ${match.id}: HTTP ${manifestResponse.status}`);
   }
 
   const manifestPayload = (await manifestResponse.json()) as FabManifestResponse;
@@ -261,7 +309,7 @@ export async function getAsset(
 
   if (manifestPointers.length === 0) {
     throw new Error(
-      `Fab manifest response for ${assetId} contained no manifest URLs (received ${artifacts.length} artifact entries)`,
+      `Fab manifest response for ${match.id} contained no manifest URLs (received ${artifacts.length} artifact entries)`,
     );
   }
 
@@ -270,7 +318,7 @@ export async function getAsset(
   // expiry) the caller can re-fetch via getAsset(). Multi-CDN failover lives in download.ts.
   const primary = manifestPointers[0];
   if (!primary) {
-    throw new Error(`Fab manifest response for ${assetId} had no usable pointer`);
+    throw new Error(`Fab manifest response for ${match.id} had no usable pointer`);
   }
   const manifest = await parseManifest(primary.manifestUrl);
 
@@ -294,6 +342,20 @@ export async function getAsset(
     manifestVersion: manifest.version,
     distributionBaseUrl: primary.distributionBaseUrl,
   };
+}
+
+export async function getAsset(
+  tokens: AuthTokens,
+  assetId: string,
+  engineVersion: string = "UE_5.7",
+): Promise<FabAssetDetail> {
+  const resolved = await resolveAsset(tokens, assetId, engineVersion);
+  if (resolved.resolution.artifactId.length === 0) {
+    throw new Error(
+      `No engine version match for ${assetId} (requested ${engineVersion}, available: ${resolved.resolution.available.join(", ") || "none"})`,
+    );
+  }
+  return fetchAssetDetail(tokens, resolved);
 }
 
 export function whoami(tokens: AuthTokens): { displayName: string; accountId: string } {

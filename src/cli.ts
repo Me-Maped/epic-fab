@@ -11,8 +11,17 @@ import {
   startBrowserAuth,
   type AuthTokens,
 } from "./auth.ts";
-import { getAsset, listLibrary, whoami, type FabAssetSummary } from "./api.ts";
+import {
+  ENGINE_VERSION_RE,
+  fetchAssetDetail,
+  listLibrary,
+  resolveAsset,
+  whoami,
+  type FabAssetSummary,
+  type ResolvedAsset,
+} from "./api.ts";
 import { downloadAsset } from "./download.ts";
+import { createInterface } from "node:readline/promises";
 
 const USAGE = `epic-fab — Epic Games / Fab.com asset library on Linux
 
@@ -25,6 +34,7 @@ Commands:
   logout                     Delete persisted auth tokens
 
 Options:
+  --engine <version>         UE engine version for artifact selection (default: UE_5.7)
   -h, --help                 Show this help
   -v, --version              Show version
 `;
@@ -56,6 +66,55 @@ function assetSlug(asset: FabAssetSummary): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
   return slug.length > 0 ? slug : asset.id;
+}
+
+async function promptEngineVersion(available: string[]): Promise<string | null> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = await rl.question("Enter a version from the list above (or 'q' to abort): ");
+    const trimmed = answer.trim();
+    if (trimmed === "q" || trimmed === "") return null;
+    if (!available.includes(trimmed)) {
+      console.error(`"${trimmed}" is not in the available versions.`);
+      return null;
+    }
+    return trimmed;
+  } finally {
+    rl.close();
+  }
+}
+
+async function handleEngineResolution(
+  tokens: import("./auth.ts").AuthTokens,
+  resolved: ResolvedAsset,
+): Promise<ResolvedAsset | null> {
+  const { resolution } = resolved;
+
+  switch (resolution.matchType) {
+    case "exact":
+      return resolved;
+
+    case "fallback":
+      console.error(
+        `Engine ${resolution.requested} not available for "${resolved.summary.title}". Using ${resolution.selected} (highest compatible version).`,
+      );
+      return resolved;
+
+    case "higher-only":
+      console.error(
+        `Engine ${resolution.requested} not available for "${resolved.summary.title}".`,
+      );
+      console.error(`Available versions: ${resolution.available.join(", ")}`);
+      const picked = await promptEngineVersion(resolution.available);
+      if (!picked) return null;
+      return resolveAsset(tokens, resolved.summary.id, picked);
+
+    case "none":
+      console.error(
+        `No engine versions found for "${resolved.summary.title}".`,
+      );
+      return null;
+  }
 }
 
 async function cmdAuth(): Promise<number> {
@@ -94,7 +153,7 @@ async function cmdList(): Promise<number> {
   }
 }
 
-async function cmdDownload(argv: ReadonlyArray<string>): Promise<number> {
+async function cmdDownload(argv: ReadonlyArray<string>, engineVersion: string): Promise<number> {
   const assetId = argv[0];
   if (!assetId || assetId.startsWith("-")) {
     console.error("download: missing <asset-id>");
@@ -109,7 +168,11 @@ async function cmdDownload(argv: ReadonlyArray<string>): Promise<number> {
 
   const into = findFlagValue(argv, "--into") ?? ".";
   try {
-    const asset = await getAsset(tokens, assetId);
+    const resolved = await resolveAsset(tokens, assetId, engineVersion);
+    const finalResolved = await handleEngineResolution(tokens, resolved);
+    if (!finalResolved) return EXIT_USER_ERROR;
+
+    const asset = await fetchAssetDetail(tokens, finalResolved);
     const result = await downloadAsset(asset, {
       targetDir: resolve(into),
       preserveStructure: true,
@@ -146,7 +209,7 @@ async function hasUprojectFile(path: string): Promise<boolean> {
   return entries.some((entry) => entry.endsWith(".uproject"));
 }
 
-async function cmdSync(argv: ReadonlyArray<string>): Promise<number> {
+async function cmdSync(argv: ReadonlyArray<string>, engineVersion: string): Promise<number> {
   const projectPath = findFlagValue(argv, "--project");
   if (!projectPath) {
     console.error("sync: missing --project <path>");
@@ -175,7 +238,14 @@ async function cmdSync(argv: ReadonlyArray<string>): Promise<number> {
     const synced: Array<{ id: string; title: string; files: number; bytes: number }> = [];
 
     for (const item of items) {
-      const detail = await getAsset(tokens, item.id);
+      const resolved = await resolveAsset(tokens, item.id, engineVersion);
+      const finalResolved = await handleEngineResolution(tokens, resolved);
+      if (!finalResolved) {
+        console.error(`Skipping "${item.title}" (no compatible engine version)`);
+        continue;
+      }
+
+      const detail = await fetchAssetDetail(tokens, finalResolved);
       const targetDir = join(fabRoot, assetSlug(detail));
       const result = await downloadAsset(detail, { targetDir, preserveStructure: true });
       synced.push({
@@ -234,6 +304,12 @@ async function main(argv: string[]): Promise<number> {
   }
 
   const rest = argv.slice(1);
+  const engineVersion = findFlagValue(argv, "--engine") ?? "UE_5.7";
+
+  if (!ENGINE_VERSION_RE.test(engineVersion)) {
+    console.error(`Invalid --engine value: "${engineVersion}". Expected format: UE_X.Y (e.g., UE_5.7)`);
+    return EXIT_USER_ERROR;
+  }
 
   switch (command) {
     case "auth":
@@ -241,9 +317,9 @@ async function main(argv: string[]): Promise<number> {
     case "list":
       return cmdList();
     case "download":
-      return cmdDownload(rest);
+      return cmdDownload(rest, engineVersion);
     case "sync":
-      return cmdSync(rest);
+      return cmdSync(rest, engineVersion);
     case "whoami":
       return cmdWhoami();
     case "logout":
