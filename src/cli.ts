@@ -27,6 +27,10 @@ Commands:
 Options:
   -h, --help                 Show this help
   -v, --version              Show version
+  --into <dir>               download: target directory (default .)
+  --project <path>           sync: UE project root
+  --concurrency <n>          CDN chunk fetch concurrency (default 8)
+  --no-skip                  Redownload even when on-disk SHA1 matches
 `;
 
 const VERSION = "0.1.0";
@@ -40,6 +44,25 @@ function findFlagValue(argv: ReadonlyArray<string>, name: string): string | unde
   const index = argv.indexOf(name);
   if (index === -1) return undefined;
   return argv[index + 1];
+}
+
+function hasFlag(argv: ReadonlyArray<string>, name: string): boolean {
+  return argv.includes(name);
+}
+
+/** Progress/status on stderr so stdout stays JSON-pipeable. */
+function status(message: string): void {
+  process.stderr.write(`${message}\n`);
+}
+
+function parseConcurrency(argv: ReadonlyArray<string>): number | undefined {
+  const raw = findFlagValue(argv, "--concurrency");
+  if (raw === undefined) return undefined;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 64) {
+    throw new Error(`--concurrency must be an integer 1–64, got ${raw}`);
+  }
+  return n;
 }
 
 async function loadAndRefresh(): Promise<AuthTokens | null> {
@@ -108,18 +131,41 @@ async function cmdDownload(argv: ReadonlyArray<string>): Promise<number> {
   }
 
   const into = findFlagValue(argv, "--into") ?? ".";
+  let concurrency: number | undefined;
   try {
+    concurrency = parseConcurrency(argv);
+  } catch (err) {
+    console.error(`download: ${(err as Error).message}`);
+    return EXIT_USER_ERROR;
+  }
+  const skipExisting = !hasFlag(argv, "--no-skip");
+  const targetDir = resolve(into);
+
+  try {
+    status(`Resolving asset ${assetId}…`);
+    status("Fetching library and signed manifest…");
     const asset = await getAsset(tokens, assetId);
+    status(
+      `Resolved “${asset.title}” — ${asset.downloadUrls.length} file(s), ${asset.chunkInfoById.size} unique chunk(s)`,
+    );
+    status(`Downloading into ${targetDir}`);
     const result = await downloadAsset(asset, {
-      targetDir: resolve(into),
+      targetDir,
       preserveStructure: true,
+      concurrency,
+      skipExisting,
     });
+    status(
+      `Done — ${result.files.length} file(s), ${result.bytesTotal} bytes` +
+        (result.skipped > 0 ? ` (${result.skipped} skipped)` : ""),
+    );
     console.log(
       JSON.stringify(
         {
           asset: { id: asset.id, title: asset.title },
           files: result.files,
           bytesTotal: result.bytesTotal,
+          skipped: result.skipped,
         },
         null,
         2,
@@ -169,23 +215,53 @@ async function cmdSync(argv: ReadonlyArray<string>): Promise<number> {
     return EXIT_NOT_AUTHENTICATED;
   }
 
+  let concurrency: number | undefined;
+  try {
+    concurrency = parseConcurrency(argv);
+  } catch (err) {
+    console.error(`sync: ${(err as Error).message}`);
+    return EXIT_USER_ERROR;
+  }
+  const skipExisting = !hasFlag(argv, "--no-skip");
+
   const fabRoot = join(resolvedProject, "Content", "Fab");
   try {
+    status("Fetching library…");
     const items = await listLibrary(tokens);
-    const synced: Array<{ id: string; title: string; files: number; bytes: number }> = [];
+    status(`Library has ${items.length} asset(s) — syncing into ${fabRoot}`);
+    const synced: Array<{
+      id: string;
+      title: string;
+      files: number;
+      bytes: number;
+      skipped: number;
+    }> = [];
 
+    let assetIndex = 0;
     for (const item of items) {
+      assetIndex += 1;
+      status(`[asset ${assetIndex}/${items.length}] Resolving ${item.id}…`);
       const detail = await getAsset(tokens, item.id);
+      status(
+        `[asset ${assetIndex}/${items.length}] “${detail.title}” — ${detail.downloadUrls.length} file(s)`,
+      );
       const targetDir = join(fabRoot, assetSlug(detail));
-      const result = await downloadAsset(detail, { targetDir, preserveStructure: true });
+      const result = await downloadAsset(detail, {
+        targetDir,
+        preserveStructure: true,
+        concurrency,
+        skipExisting,
+      });
       synced.push({
         id: detail.id,
         title: detail.title,
         files: result.files.length,
         bytes: result.bytesTotal,
+        skipped: result.skipped,
       });
     }
 
+    status(`Sync complete — ${synced.length} asset(s)`);
     console.log(
       JSON.stringify(
         {
