@@ -110,10 +110,31 @@ async function promptAuthCode(): Promise<string> {
   }
 }
 
+export function getBrowserAuthUrl(): string {
+  return BROWSER_AUTH_URL;
+}
+
+export async function exchangeAuthCode(code: string): Promise<AuthTokens> {
+  const trimmed = code.trim();
+  if (trimmed.length === 0) {
+    throw new Error("No authorization code provided");
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    code: trimmed,
+    token_type: "eg1",
+  });
+
+  const tokens = await postToken(body);
+  await saveTokens(tokens);
+  return tokens;
+}
+
 export async function startBrowserAuth(): Promise<AuthTokens> {
   console.log("Open this URL in your browser, sign in, and copy the `authorizationCode` value:");
   console.log("");
-  console.log(`  ${BROWSER_AUTH_URL}`);
+  console.log(`  ${getBrowserAuthUrl()}`);
   console.log("");
 
   const code = await promptAuthCode();
@@ -121,15 +142,7 @@ export async function startBrowserAuth(): Promise<AuthTokens> {
     throw new Error("No authorization code provided");
   }
 
-  const body = new URLSearchParams({
-    grant_type: "authorization_code",
-    code,
-    token_type: "eg1",
-  });
-
-  const tokens = await postToken(body);
-  await saveTokens(tokens);
-  return tokens;
+  return exchangeAuthCode(code);
 }
 
 export async function loadTokens(): Promise<AuthTokens | null> {

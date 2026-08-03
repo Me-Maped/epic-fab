@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>epic-fab</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ AUTH ============ -->
+<section id="view-auth" class="auth-wrap" hidden>
+  <div class="auth-card">
+    <div class="wordmark">epic-fab</div>
+    <p class="auth-lede">
+      Browse and download your Fab.com asset library without leaving your box.
+      Sign in with your Epic account, then paste the code Epic gives you.
+    </p>
+    <button id="auth-signin" class="btn btn-accent btn-block">Sign in with Epic</button>
+    <div class="auth-divider"><span>then</span></div>
+    <label class="field-label" for="auth-code">Authorization code</label>
+    <div class="auth-code-row">
+      <input id="auth-code" type="text" autocomplete="off" spellcheck="false"
+             placeholder="paste code" class="input">
+      <button id="auth-submit" class="btn btn-ghost">Submit</button>
+    </div>
+    <p id="auth-error" class="auth-error" hidden></p>
+  </div>
+  <p class="auth-foot">Local only. Tokens stay on this machine.</p>
+</section>
+
+<!-- ============ MAIN ============ -->
+<section id="view-main" hidden>
+  <header class="hdr">
+    <div class="hdr-left">
+      <span class="wordmark">epic-fab</span>
+    </div>
+    <div class="hdr-center">
+      <input id="search-input" class="input search" type="search"
+             placeholder="Filter library" autocomplete="off" spellcheck="false">
+      <button id="btn-refresh" class="btn btn-ghost">Refresh</button>
+    </div>
+    <div class="hdr-right">
+      <button id="btn-downloads" class="btn btn-ghost" aria-expanded="false" aria-controls="drawer">
+        Downloads
+        <span id="dl-count" class="count-badge" hidden></span>
+      </button>
+      <span id="hdr-user" class="hdr-user"></span>
+      <button id="hdr-logout" class="btn btn-ghost">Log out</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- skeleton while loading -->
+    <div id="grid-skeleton" class="grid" aria-hidden="true">
+      <div class="sk-card"><div class="sk-thumb"></div><div class="sk-line"></div><div class="sk-line short"></div></div>
+      <div class="sk-card"><div class="sk-thumb"></div><div class="sk-line"></div><div class="sk-line short"></div></div>
+      <div class="sk-card"><div class="sk-thumb"></div><div class="sk-line"></div><div class="sk-line short"></div></div>
+      <div class="sk-card"><div class="sk-thumb"></div><div class="sk-line"></div><div class="sk-line short"></div></div>
+      <div class="sk-card"><div class="sk-thumb"></div><div class="sk-line"></div><div class="sk-line short"></div></div>
+      <div class="sk-card"><div class="sk-thumb"></div><div class="sk-line"></div><div class="sk-line short"></div></div>
+      <div class="sk-card"><div class="sk-thumb"></div><div class="sk-line"></div><div class="sk-line short"></div></div>
+      <div class="sk-card"><div class="sk-thumb"></div><div class="sk-line"></div><div class="sk-line short"></div></div>
+    </div>
+
+    <div id="grid" class="grid"></div>
+    <p id="grid-empty" class="empty-state" hidden></p>
+  </main>
+
+  <!-- ============ DOWNLOADS DRAWER ============ -->
+  <aside id="drawer" class="drawer" aria-label="Downloads">
+    <div class="drawer-hdr">
+      <h2 class="drawer-title">Downloads</h2>
+      <div class="drawer-actions">
+        <button id="drawer-clear" class="btn btn-ghost btn-sm">Clear finished</button>
+        <button id="drawer-close" class="btn btn-ghost btn-sm" aria-label="Close downloads">Close</button>
+      </div>
+    </div>
+    <div id="jobs-list" class="jobs-list"></div>
+    <p id="jobs-empty" class="empty-state">No downloads yet. Click any asset to queue one.</p>
+  </aside>
+  <div id="drawer-scrim" class="drawer-scrim" hidden></div>
+</section>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

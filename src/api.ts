@@ -3,6 +3,7 @@
 // Auth model: the Epic access_token from §1 is the Fab bearer; no separate Fab token exchange.
 
 import type { AuthTokens } from "./auth.ts";
+import { loadLibraryCache, loadLibraryCacheAllowStale, saveLibraryCache } from "./cache.ts";
 import { parseManifest, type ChunkInfo, type ChunkPart } from "./manifestParser.ts";
 
 // docs/api-surface.md §3.1 — use /e/ and /p/ URL families exclusively; Bearer-only, no cookies.
@@ -229,6 +230,30 @@ export async function listLibrary(tokens: AuthTokens): Promise<FabAssetSummary[]
   } while (cursor);
 
   return items;
+}
+
+/**
+ * Cache the library per account for UI refreshes, while retaining the network result as the
+ * source of truth. A stale entry is used only as an offline fallback.
+ */
+export async function listLibraryCached(
+  tokens: AuthTokens,
+  opts?: { forceRefresh?: boolean; maxAgeMs?: number },
+): Promise<FabAssetSummary[]> {
+  if (!opts?.forceRefresh) {
+    const cached = await loadLibraryCache(tokens.accountId, opts?.maxAgeMs);
+    if (cached) return cached.assets;
+  }
+
+  try {
+    const assets = await listLibrary(tokens);
+    await saveLibraryCache(tokens.accountId, assets);
+    return assets;
+  } catch (err) {
+    const stale = await loadLibraryCacheAllowStale(tokens.accountId);
+    if (stale) return stale.assets;
+    throw err;
+  }
 }
 
 export interface ResolvedAsset {

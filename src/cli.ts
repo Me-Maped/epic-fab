@@ -21,6 +21,7 @@ import {
   type ResolvedAsset,
 } from "./api.ts";
 import { downloadAsset } from "./download.ts";
+import { startUiServer } from "./serve.ts";
 import { createInterface } from "node:readline/promises";
 
 const USAGE = `epic-fab — Epic Games / Fab.com asset library on Linux
@@ -30,6 +31,7 @@ Commands:
   list [--json]              List owned Fab assets
   download <asset-id> [...]  Download asset(s) to disk
   sync --project <path>      Bulk-download library into a UE project's Content/
+  ui [--port <n>] [--no-open]  Serve local web UI (default port 8471)
   whoami                     Show current authenticated Epic account
   logout                     Delete persisted auth tokens
 
@@ -41,9 +43,12 @@ Options:
   --project <path>           sync: UE project root
   --concurrency <n>          CDN chunk fetch concurrency (default 8)
   --no-skip                  Redownload even when on-disk SHA1 matches
+  --port <n>                 ui: listen port (default 8471)
+  --no-open                  ui: do not auto-open the browser
 `;
 
 const VERSION = "0.1.0";
+const DEFAULT_UI_PORT = 8471;
 
 const EXIT_OK = 0;
 const EXIT_USER_ERROR = 1;
@@ -350,6 +355,28 @@ async function cmdSync(argv: ReadonlyArray<string>, engineVersion: string): Prom
   }
 }
 
+function parsePort(argv: ReadonlyArray<string>): number {
+  const raw = findFlagValue(argv, "--port");
+  if (raw === undefined) return DEFAULT_UI_PORT;
+  const port = Number.parseInt(raw, 10);
+  if (!Number.isFinite(port) || String(port) !== raw.trim() || port < 1 || port > 65535) {
+    throw new Error(`--port must be an integer 1–65535, got ${raw}`);
+  }
+  return port;
+}
+
+async function cmdUi(argv: ReadonlyArray<string>): Promise<number> {
+  try {
+    const port = parsePort(argv);
+    startUiServer({ port, openBrowser: !hasFlag(argv, "--no-open") });
+    await new Promise<void>(() => undefined);
+    return EXIT_OK;
+  } catch (err) {
+    console.error(`ui failed: ${(err as Error).message}`);
+    return EXIT_NETWORK_ERROR;
+  }
+}
+
 async function cmdWhoami(): Promise<number> {
   const tokens = await loadTokens();
   if (!tokens) {
@@ -396,6 +423,8 @@ async function main(argv: string[]): Promise<number> {
       return cmdDownload(rest, engineVersion);
     case "sync":
       return cmdSync(rest, engineVersion);
+    case "ui":
+      return cmdUi(rest);
     case "whoami":
       return cmdWhoami();
     case "logout":
