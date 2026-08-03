@@ -11,8 +11,9 @@ import {
   startBrowserAuth,
   type AuthTokens,
 } from "./auth.ts";
-import { getAsset, listLibrary, whoami, type FabAssetSummary } from "./api.ts";
+import { getAsset, listLibraryCached, whoami, type FabAssetSummary } from "./api.ts";
 import { downloadAsset } from "./download.ts";
+import { startUiServer } from "./serve.ts";
 
 const USAGE = `epic-fab — Epic Games / Fab.com asset library on Linux
 
@@ -21,6 +22,7 @@ Commands:
   list [--json]              List owned Fab assets
   download <asset-id> [...]  Download asset(s) to disk
   sync --project <path>      Bulk-download library into a UE project's Content/
+  ui [--port <n>] [--no-open]  Serve local web UI (default port 8471)
   whoami                     Show current authenticated Epic account
   logout                     Delete persisted auth tokens
 
@@ -31,9 +33,14 @@ Options:
   --project <path>           sync: UE project root
   --concurrency <n>          CDN chunk fetch concurrency (default 8)
   --no-skip                  Redownload even when on-disk SHA1 matches
+  --refresh                  Bypass local library cache, force re-fetch
+  --port <n>                 ui: listen port (default 8471)
+  --no-open                  ui: do not auto-open the browser
 `;
 
 const VERSION = "0.1.0";
+
+const DEFAULT_UI_PORT = 8471;
 
 const EXIT_OK = 0;
 const EXIT_USER_ERROR = 1;
@@ -92,7 +99,7 @@ async function cmdAuth(): Promise<number> {
   }
 }
 
-async function cmdList(): Promise<number> {
+async function cmdList(argv: ReadonlyArray<string>): Promise<number> {
   const tokens = await loadAndRefresh();
   if (!tokens) {
     console.error("Not authenticated. Run: epic-fab auth");
@@ -100,7 +107,7 @@ async function cmdList(): Promise<number> {
   }
 
   try {
-    const items = await listLibrary(tokens);
+    const items = await listLibraryCached(tokens, { forceRefresh: hasFlag(argv, "--refresh") });
     // JSON is the default output — the brief calls for stdout-pipeable output. --json is accepted
     // as an explicit synonym (no-op) so users have a stable contract if a non-JSON mode lands later.
     const projected = items.map((item) => ({
@@ -139,12 +146,13 @@ async function cmdDownload(argv: ReadonlyArray<string>): Promise<number> {
     return EXIT_USER_ERROR;
   }
   const skipExisting = !hasFlag(argv, "--no-skip");
+  const forceRefresh = hasFlag(argv, "--refresh");
   const targetDir = resolve(into);
 
   try {
     status(`Resolving asset ${assetId}…`);
     status("Fetching library and signed manifest…");
-    const asset = await getAsset(tokens, assetId);
+    const asset = await getAsset(tokens, assetId, "UE_5.7", { forceRefresh });
     status(
       `Resolved “${asset.title}” — ${asset.downloadUrls.length} file(s), ${asset.chunkInfoById.size} unique chunk(s)`,
     );
@@ -223,11 +231,12 @@ async function cmdSync(argv: ReadonlyArray<string>): Promise<number> {
     return EXIT_USER_ERROR;
   }
   const skipExisting = !hasFlag(argv, "--no-skip");
+  const forceRefresh = hasFlag(argv, "--refresh");
 
   const fabRoot = join(resolvedProject, "Content", "Fab");
   try {
     status("Fetching library…");
-    const items = await listLibrary(tokens);
+    const items = await listLibraryCached(tokens, { forceRefresh });
     status(`Library has ${items.length} asset(s) — syncing into ${fabRoot}`);
     const synced: Array<{
       id: string;
@@ -241,7 +250,7 @@ async function cmdSync(argv: ReadonlyArray<string>): Promise<number> {
     for (const item of items) {
       assetIndex += 1;
       status(`[asset ${assetIndex}/${items.length}] Resolving ${item.id}…`);
-      const detail = await getAsset(tokens, item.id);
+      const detail = await getAsset(tokens, item.id, "UE_5.7", { forceRefresh });
       status(
         `[asset ${assetIndex}/${items.length}] “${detail.title}” — ${detail.downloadUrls.length} file(s)`,
       );
@@ -276,6 +285,37 @@ async function cmdSync(argv: ReadonlyArray<string>): Promise<number> {
     return EXIT_OK;
   } catch (err) {
     console.error(`sync failed: ${(err as Error).message}`);
+    return EXIT_NETWORK_ERROR;
+  }
+}
+
+function parsePort(argv: ReadonlyArray<string>): number {
+  const raw = findFlagValue(argv, "--port");
+  if (raw === undefined) return DEFAULT_UI_PORT;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || String(n) !== raw.trim() || n < 1 || n > 65535) {
+    throw new Error(`--port must be an integer 1–65535, got ${raw}`);
+  }
+  return n;
+}
+
+async function cmdUi(argv: ReadonlyArray<string>): Promise<number> {
+  let port: number;
+  try {
+    port = parsePort(argv);
+  } catch (err) {
+    console.error(`ui: ${(err as Error).message}`);
+    return EXIT_USER_ERROR;
+  }
+  const openBrowser = !hasFlag(argv, "--no-open");
+
+  try {
+    startUiServer({ port, openBrowser });
+    // Keep the process alive — Bun.serve handles requests until killed.
+    await new Promise<void>(() => undefined);
+    return EXIT_OK;
+  } catch (err) {
+    console.error(`ui failed: ${(err as Error).message}`);
     return EXIT_NETWORK_ERROR;
   }
 }
@@ -315,11 +355,13 @@ async function main(argv: string[]): Promise<number> {
     case "auth":
       return cmdAuth();
     case "list":
-      return cmdList();
+      return cmdList(rest);
     case "download":
       return cmdDownload(rest);
     case "sync":
       return cmdSync(rest);
+    case "ui":
+      return cmdUi(rest);
     case "whoami":
       return cmdWhoami();
     case "logout":

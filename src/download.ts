@@ -9,6 +9,16 @@ import { dirname, join, normalize, sep } from "node:path";
 import type { FabAssetDetail, FabDownloadFile } from "./api.ts";
 import { chunkPath, decodeChunkPayload, type ChunkInfo, type ChunkPart } from "./manifestParser.ts";
 
+export interface DownloadProgress {
+  phase: "checking" | "downloading" | "done";
+  filesDone: number;
+  fileTotal: number;
+  bytesDone: number;
+  /** Sum of all manifest file sizes, known upfront (skipped files count toward it). */
+  bytesTotal: number;
+  currentFile: string | null;
+}
+
 export interface DownloadOptions {
   targetDir: string;
   preserveStructure: boolean;
@@ -23,6 +33,21 @@ export interface DownloadOptions {
    * Default = concurrency * 3. Higher = faster but more RAM.
    */
   prefetchWindow?: number;
+  /**
+   * Optional progress callback. Fires on skip (phase "checking"), per chunk-part write
+   * and per file completion (phase "downloading"), and once at the end (phase "done").
+   */
+  onProgress?: (progress: DownloadProgress) => void;
+  /** Abort signal — cancels the download. Throws DOMException("Download aborted", "AbortError"). */
+  signal?: AbortSignal;
+}
+
+function abortError(): DOMException {
+  return new DOMException("Download aborted", "AbortError");
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw abortError();
 }
 
 const DEFAULT_CHUNK_CONCURRENCY = 8;
@@ -50,6 +75,7 @@ async function fetchChunkBytes(
   distributionBaseUrls: ReadonlyArray<string>,
   manifestVersion: number,
   retries: number,
+  signal: AbortSignal | undefined,
 ): Promise<Uint8Array> {
   let lastError: Error | undefined;
 
@@ -58,8 +84,9 @@ async function fetchChunkBytes(
     const url = chunkPath(chunk, distributionBaseUrl, manifestVersion);
 
     for (let attempt = 0; attempt <= retries; attempt++) {
+      throwIfAborted(signal);
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, { signal });
         if (response.ok) {
           return new Uint8Array(await response.arrayBuffer());
         }
@@ -106,6 +133,7 @@ class ChunkCache {
     private readonly maxConcurrent: number,
     private readonly retries: number,
     private readonly remainingUses: Map<string, number>,
+    private readonly signal: AbortSignal | undefined,
   ) {}
 
   private acquire(): Promise<void> {
@@ -156,6 +184,7 @@ class ChunkCache {
           this.distributionBaseUrls,
           this.manifestVersion,
           this.retries,
+          this.signal,
         );
         const decoded = decodeChunkPayload(raw);
         // Only keep if still needed (refcount may have been fully consumed elsewhere — rare).
@@ -262,6 +291,19 @@ async function fileMatchesHash(targetPath: string, expectedHash: string, expecte
 }
 
 /**
+ * Progress wiring handed to assembleFile. `counters` is shared across all files in a
+ * downloadAsset call — per-part writes bump bytesDone so byte progress is global, not
+ * per-file. `bytesTotal` is the upfront sum of every manifest file size.
+ */
+interface AssemblyProgress {
+  counters: { bytesDone: number; filesDone: number };
+  fileTotal: number;
+  bytesTotal: number;
+  relativePath: string;
+  onProgress: (progress: DownloadProgress) => void;
+}
+
+/**
  * Stream-assemble one file to disk. Parts stay ordered; each part's chunk is refcount-consumed
  * after copy so decoded payloads are freed as soon as no later part needs them. Avoids holding
  * the full file buffer + all chunks in RAM (the previous OOM path on large assets).
@@ -273,6 +315,8 @@ async function assembleFile(
   order: ReadonlyArray<string>,
   orderCursor: { value: number },
   prefetchWindow: number,
+  progress: AssemblyProgress | null,
+  signal: AbortSignal | undefined,
 ): Promise<number> {
   await mkdir(dirname(targetPath), { recursive: true });
 
@@ -286,6 +330,7 @@ async function assembleFile(
   let writeOffset = 0;
   try {
     for (const part of file.chunkParts) {
+      throwIfAborted(signal);
       // Keep CDN pool busy a window ahead of the assembly cursor.
       primeWindow(cache, order, orderCursor.value, prefetchWindow);
 
@@ -304,6 +349,18 @@ async function assembleFile(
       }
       if (hasher) hasher.update(slice);
       writeOffset += part.size;
+
+      if (progress) {
+        progress.counters.bytesDone += part.size;
+        progress.onProgress({
+          phase: "downloading",
+          filesDone: progress.counters.filesDone,
+          fileTotal: progress.fileTotal,
+          bytesDone: progress.counters.bytesDone,
+          bytesTotal: progress.bytesTotal,
+          currentFile: progress.relativePath,
+        });
+      }
 
       cache.consume(part.guid);
       orderCursor.value += 1;
@@ -355,6 +412,12 @@ export async function downloadAsset(
   }
 
   const fileTotal = asset.downloadUrls.length;
+  // Upfront sum of every manifest file size — skipped files count toward the total too,
+  // so byte progress maps 1:1 onto the full asset regardless of skip decisions.
+  const allFilesBytes = asset.downloadUrls.reduce((sum, file) => sum + file.size, 0);
+  const onProgress = opts.onProgress;
+  const signal = opts.signal;
+  const counters = { bytesDone: 0, filesDone: 0 };
   const writtenFiles: string[] = [];
   let bytesTotal = 0;
   let filesDone = 0;
@@ -373,6 +436,7 @@ export async function downloadAsset(
   }
 
   for (const file of asset.downloadUrls) {
+    throwIfAborted(signal);
     const relativePath = opts.preserveStructure
       ? safeRelativePath(file.filename)
       : safeRelativePath(file.filename.split(/[/\\]/).pop() ?? file.filename);
@@ -383,7 +447,17 @@ export async function downloadAsset(
       bytesTotal += file.size;
       filesDone += 1;
       skipped += 1;
+      counters.filesDone = filesDone;
+      counters.bytesDone += file.size;
       process.stderr.write(`[${filesDone}/${fileTotal}] skip ${relativePath}\n`);
+      onProgress?.({
+        phase: "checking",
+        filesDone,
+        fileTotal,
+        bytesDone: counters.bytesDone,
+        bytesTotal: allFilesBytes,
+        currentFile: relativePath,
+      });
       continue;
     }
 
@@ -392,6 +466,14 @@ export async function downloadAsset(
 
   if (toDownload.length === 0) {
     process.stderr.write(`Nothing to fetch — all ${skipped} file(s) already match manifest SHA1\n`);
+    onProgress?.({
+      phase: "done",
+      filesDone,
+      fileTotal,
+      bytesDone: counters.bytesDone,
+      bytesTotal: allFilesBytes,
+      currentFile: null,
+    });
     return { files: writtenFiles, bytesTotal, skipped };
   }
 
@@ -408,6 +490,7 @@ export async function downloadAsset(
     concurrency,
     retries,
     remainingUses,
+    signal,
   );
 
   process.stderr.write(
@@ -422,6 +505,15 @@ export async function downloadAsset(
 
   for (const { file, relativePath, targetPath } of toDownload) {
     process.stderr.write(`[${filesDone + 1}/${fileTotal}] downloading ${relativePath}…\n`);
+    const assemblyProgress: AssemblyProgress | null = onProgress
+      ? {
+          counters,
+          fileTotal,
+          bytesTotal: allFilesBytes,
+          relativePath,
+          onProgress,
+        }
+      : null;
     const bytes = await assembleFile(
       file,
       cache,
@@ -429,14 +521,34 @@ export async function downloadAsset(
       order,
       orderCursor,
       prefetchWindow,
+      assemblyProgress,
+      signal,
     );
     writtenFiles.push(targetPath);
     bytesTotal += bytes;
     filesDone += 1;
+    counters.filesDone = filesDone;
     process.stderr.write(
       `[${filesDone}/${fileTotal}] wrote ${relativePath} (${bytes} bytes, cache ${cache.cachedCount()} chunks)\n`,
     );
+    onProgress?.({
+      phase: "downloading",
+      filesDone,
+      fileTotal,
+      bytesDone: counters.bytesDone,
+      bytesTotal: allFilesBytes,
+      currentFile: relativePath,
+    });
   }
+
+  onProgress?.({
+    phase: "done",
+    filesDone,
+    fileTotal,
+    bytesDone: counters.bytesDone,
+    bytesTotal: allFilesBytes,
+    currentFile: null,
+  });
 
   return { files: writtenFiles, bytesTotal, skipped };
 }

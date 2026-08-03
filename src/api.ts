@@ -3,6 +3,7 @@
 // Auth model: the Epic access_token from §1 is the Fab bearer; no separate Fab token exchange.
 
 import type { AuthTokens } from "./auth.ts";
+import { loadLibraryCache, loadLibraryCacheAllowStale, saveLibraryCache } from "./cache.ts";
 import { parseManifest, type ChunkInfo, type ChunkPart } from "./manifestParser.ts";
 
 // docs/api-surface.md §3.1 — use /e/ and /p/ URL families exclusively; Bearer-only, no cookies.
@@ -194,15 +195,53 @@ export async function listLibrary(tokens: AuthTokens): Promise<FabAssetSummary[]
   return items;
 }
 
+/**
+ * listLibrary with a local per-account disk cache in front of it. Cache hit (within TTL)
+ * skips the network entirely; miss/forced refresh fetches and persists. If the network
+ * fetch throws, a stale cache (any age) is used as an offline fallback before giving up.
+ * All diagnostics go to stderr so stdout stays JSON-pipeable.
+ */
+export async function listLibraryCached(
+  tokens: AuthTokens,
+  opts?: { forceRefresh?: boolean; maxAgeMs?: number },
+): Promise<FabAssetSummary[]> {
+  if (!opts?.forceRefresh) {
+    const cached = await loadLibraryCache(tokens.accountId, opts?.maxAgeMs);
+    if (cached) {
+      const ageMin = Math.round((Date.now() - Date.parse(cached.fetchedAt)) / 60_000);
+      process.stderr.write(
+        `Library cache hit (${cached.assets.length} assets, age ${ageMin}m)\n`,
+      );
+      return cached.assets;
+    }
+  }
+
+  try {
+    const assets = await listLibrary(tokens);
+    await saveLibraryCache(tokens.accountId, assets);
+    return assets;
+  } catch (err) {
+    const stale = await loadLibraryCacheAllowStale(tokens.accountId);
+    if (stale) {
+      process.stderr.write(
+        `Network fetch failed — using stale cache from ${stale.fetchedAt}\n`,
+      );
+      return stale.assets;
+    }
+    throw err;
+  }
+}
+
 export async function getAsset(
   tokens: AuthTokens,
   assetId: string,
   engineVersion: string = "UE_5.7",
+  opts?: { forceRefresh?: boolean },
 ): Promise<FabAssetDetail> {
-  // Library results carry the artifact + namespace needed for the manifest call. We re-walk
-  // the library to find the matching record rather than caching, because the listing is cheap
-  // and Fab's TTL on the manifest pointers makes stale lookups risky anyway.
-  const library = await listLibrary(tokens);
+  // Library results carry the artifact + namespace needed for the manifest call. Resolve via
+  // the cached listing — a sync over N assets now costs 1 fetch instead of N+1. The manifest
+  // pointers themselves are still requested fresh below, so signed-URL TTL is unaffected.
+  const library = await listLibraryCached(tokens, opts);
   const match = library.find((item) => item.id === assetId);
   if (!match) {
     throw new Error(`Asset ${assetId} not found in library`);
