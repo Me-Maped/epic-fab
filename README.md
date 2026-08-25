@@ -1,176 +1,189 @@
 <div align="center">
+  <img alt="Epic-Fab — Linux 原生 Epic Games / Fab 资源库工具" src="./docs/assets/banner.svg" width="900">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/banner.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./docs/assets/banner.svg">
-  <img alt="Epic-Fab — Best of both — Epic Games library + Linux-native CLI." src="./docs/assets/banner.svg" width="900">
-</picture>
+  <h1>Epic-Fab</h1>
+  <p><strong>无需 Epic Games Launcher，在 Linux 上管理你的 Fab 资源库。</strong></p>
+  <p><a href="./README.en.md">English README</a></p>
 
-<br/>
-
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=22&pause=1100&color=58A6FF&center=true&vCenter=true&width=700&lines=Your%20Epic%20library%2C%20on%20Linux.;No%20launcher.%20No%20Wine.%20No%20compromises.;Browse.%20Download.%20Sync.%20Done.;MIT%20licensed.%20Bun%20%2B%20TypeScript.%20Forever%20yours.)](https://github.com/StarksLabs/epic-fab)
-
-<br/>
-
-<!-- Project Health -->
-[![License](https://img.shields.io/github/license/StarksLabs/epic-fab?style=flat&color=f0883e)](https://github.com/StarksLabs/epic-fab/blob/master/LICENSE)
-[![Last Commit](https://img.shields.io/github/last-commit/StarksLabs/epic-fab?style=flat&logo=github&color=58a6ff)](https://github.com/StarksLabs/epic-fab/commits)
-[![Stars](https://img.shields.io/github/stars/StarksLabs/epic-fab?style=flat&logo=github&color=7ee787)](https://github.com/StarksLabs/epic-fab/stargazers)
-[![Issues](https://img.shields.io/github/issues/StarksLabs/epic-fab?style=flat&logo=github&color=d2a8ff)](https://github.com/StarksLabs/epic-fab/issues)
-
-<!-- Tech -->
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-FBF0DF?style=flat&logo=bun&logoColor=black)](https://bun.sh/)
-[![Linux](https://img.shields.io/badge/Linux-native-FCC624?style=flat&logo=linux&logoColor=black)](https://www.linux.org/)
-[![Unreal Engine](https://img.shields.io/badge/Unreal%20Engine-5.x-313131?style=flat&logo=unrealengine&logoColor=white)](https://www.unrealengine.com/)
-[![Epic Games](https://img.shields.io/badge/Epic%20Games-compatible-313131?style=flat&logo=epicgames&logoColor=white)](https://store.epicgames.com/)
-[![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-D97757?style=flat&logo=anthropic&logoColor=white)](https://www.anthropic.com/claude-code)
-[![Built with PAI](https://img.shields.io/badge/Built%20with-PAI-8B5CF6?style=flat&logo=github&logoColor=white)](https://github.com/danielmiessler/PAI)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/cmTXqECZ)
-
-<br/>
-
-# Epic-Fab
-
+  [![License](https://img.shields.io/github/license/Me-Maped/epic-fab?style=flat&color=f0883e)](./LICENSE)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+  [![Bun](https://img.shields.io/badge/Bun-%E2%89%A51.0-FBF0DF?style=flat&logo=bun&logoColor=black)](https://bun.sh/)
+  [![Linux](https://img.shields.io/badge/Linux-native-FCC624?style=flat&logo=linux&logoColor=black)](https://www.linux.org/)
 </div>
 
 ---
 
-## ✨ What it is
+## ✨ 简介
 
-Epic Games has never shipped a Launcher for Linux. The Fab plugin, Quixel Bridge, and the entire Epic-account-bound asset library are Launcher-distributed binaries — Linux users running Unreal Engine get locked out of assets they legitimately own (Fab purchases, free monthly drops, Quixel Megascans, UE Marketplace items).
+Epic Games 尚未为 Linux 提供官方 Launcher。`epic-fab` 是一个基于 **Bun + TypeScript** 的 Linux 原生工具，使用浏览器 OAuth 登录你的 Epic 账户，并访问你已拥有的 Fab、Quixel Megascans 和 Unreal Engine Marketplace 资源。
 
-`epic-fab` closes the gap. One Bun-runtime binary, one OAuth login, your entire Fab library available at the command line.
+它既可以作为适合脚本和管道处理的命令行工具，也提供本地 Web UI，方便浏览资源库并查看下载进度。
 
-- **Browse** every asset in your library as JSON, pipeable into anything.
-- **Download** any asset to a target directory — chunk-reassembled, SHA1-verified, multi-CDN aware.
-- **Sync** a UE project: bulk-pull your library straight into `<project>/Content/Fab/`.
-- **Works against your real Epic account.** Real OAuth, real `accounts.fab.com` API, real CDN-signed manifests.
+- **浏览**：列出已拥有的 Fab 资源，可输出 JSON。
+- **下载**：解析 Epic 清单、并行下载分块并执行 SHA-1 校验。
+- **同步**：将资源批量下载到 Unreal Engine 项目的 `Content/Fab/` 目录。
+- **本地 UI**：在浏览器中筛选资源、提交下载任务并查看实时进度。
+- **无需 Wine / Launcher**：不依赖 Epic Games Launcher 或其 Windows 运行环境。
 
-No Wine. No Heroic shim. No Epic Launcher running under emulation. Just the Linux tools you already use.
+> [!WARNING]
+> 本项目是独立的开源工具，与 Epic Games、Fab 均无隶属、赞助或认可关系。请自行承担使用风险，并遵守 Epic 与 Fab 的相关条款。
 
 ---
 
-## 🚀 Quickstart
+## 🚀 快速开始
+
+### 环境要求
+
+- Linux
+- [Bun](https://bun.sh/) `>= 1.0`
 
 ```bash
-git clone https://github.com/starkslabs/epic-fab.git ~/Projects/epic-fab
-cd ~/Projects/epic-fab
+git clone https://github.com/Me-Maped/epic-fab.git
+cd epic-fab
 bun install
-bun link                              # `epic-fab` now on $PATH
 
-epic-fab auth                         # one-time browser login
-epic-fab list | head -20              # see your library
-epic-fab download <asset-id> --into /tmp/asset
+# 可选：安装为全局命令
+bun link
 ```
 
-Tokens land at `~/.config/epic-fab/auth.json` (mode `600`, never in URLs, never in logs). Refresh happens transparently when the access token expires mid-session.
+### 登录并查看资源库
 
----
+```bash
+# 浏览器会打开 Epic 登录页；完成登录后，将授权码粘贴回终端
+epic-fab auth
 
-## 📦 Commands
+# 查看当前登录账户
+epic-fab whoami
 
-| Command | What it does |
-|---|---|
-| `epic-fab auth` | One-time Epic OAuth — prints a login URL, you paste the authorization code back |
-| `epic-fab whoami` | Show the authenticated Epic account display name + ID |
-| `epic-fab list` | JSON dump of every owned Fab asset (id, title, type, ownedAt) |
-| `epic-fab download <id> --into <dir>` | Download a single asset to a target directory |
-| `epic-fab sync --project <path>` | Bulk-download library into a UE project's `Content/Fab/` tree |
-| `epic-fab logout` | Delete persisted auth tokens |
+# 列出已拥有的资源
+epic-fab list
 
-Every command exits with a meaningful code (`0` OK, `1` user error, `2` not authenticated, `3` network error) and emits JSON on stdout for piping.
-
----
-
-## 🧠 How it works
-
-`epic-fab` speaks Epic's launcher-OAuth dialect — the same `launcherAppClient2` flow Linux community tooling (Legendary, Heroic) has converged on — and the Fab account-library REST API that the desktop Launcher uses internally.
-
-```
-┌─────────────────┐    1. browser OAuth    ┌────────────────────┐
-│  you  +  epic-  │ ◄─────────────────────► │  account-public-    │
-│  fab terminal   │    code + tokens       │  service-prod03     │
-└────────┬────────┘                        └────────────────────┘
-         │ 2. bearer token
-         ▼
-┌─────────────────┐  3. /e/accounts/{id}/  ┌────────────────────┐
-│  Fab REST API   │ ◄─────── ue/library ── │  www.fab.com        │
-│                 │  /e/artifacts/{id}/    └────────────────────┘
-└────────┬────────┘  manifest (POST)
-         │ 4. signed manifest URL
-         ▼
-┌─────────────────┐  5. parallel chunks    ┌────────────────────┐
-│  binary mani-   │  (SHA1 verified per    │  CloudFront /       │
-│  fest parser    │  file, GUID-dedup'd)   │  Akamai / Fastly    │
-└─────────────────┘                        └────────────────────┘
+# 以 JSON 输出，方便 jq 等工具处理
+epic-fab list --json | jq .
 ```
 
-Under the hood: Epic's binary manifest format (magic `0x44BEC00C`), chunk database lookup, parallel chunked fetch with bounded concurrency, zlib decompression, per-file SHA1 verification against the canonical hash Epic publishes. Multi-CDN failover, no shell interpolation on external input, no token in any URL.
+令牌保存在 `~/.config/epic-fab/auth.json`，文件权限会限制为仅当前用户可读写；令牌不会出现在 URL 或日志中。
 
 ---
 
-## 🤝 Contributing
+## 🖥️ 本地 Web UI
 
-PRs welcome — especially around: additional engine-version coverage, JSON-manifest support for legacy assets, container/Nix packaging, integration test fixtures from real downloads. See [`ISA.md`](./ISA.md) for the project's living ideal-state articulation — that's the source of truth for what "done" looks like.
+除了 CLI，项目还包含一个零构建步骤的本地单页界面。它由 `src/ui/` 中的原生 HTML、CSS 和 JavaScript 实现，并由 CLI 提供本地 API；不会把你的资源库数据发送到第三方服务。
 
----
+启动 UI：
 
-## 🙏 Acknowledgments
+```bash
+# 默认监听 http://localhost:8471，并尝试打开浏览器
+epic-fab ui
 
-- **[Legendary](https://github.com/derrod/legendary)** by [@derrod](https://github.com/derrod) — the canonical reference for Epic's OAuth and binary manifest format. `epic-fab`'s parser is ported from Legendary's layout.
-- **[egs-api-rs](https://github.com/AchetaGames/egs-api-rs)** — the most complete recent Rust integration for the Fab side of Epic's API surface.
-- **[PAI ecosystem](https://github.com/danielmiessler/PAI)** — built as a contribution to Daniel Miessler's framework for personal AI infrastructure.
+# 指定端口，且不自动打开浏览器
+epic-fab ui --port 9000 --no-open
+```
 
----
+UI 包含以下功能：
 
-## 📜 License
+| 功能 | 说明 |
+| --- | --- |
+| Epic 登录 | 打开官方登录页，并在本地界面粘贴授权码完成认证。 |
+| 资源库浏览 | 以卡片形式展示已拥有的资源，支持按标题即时筛选和手动刷新。 |
+| 下载任务 | 从资源卡片创建下载任务；下载抽屉展示队列、进度、成功或失败状态。 |
+| 实时反馈 | 使用服务端事件（SSE）更新下载进度；通知消息提示错误与操作结果。 |
+| 本地优先 | UI 仅监听本机地址，并复用 CLI 的认证、资源库与下载模块。 |
 
-[MIT](./LICENSE) © 2026 [Starks Labs](https://github.com/starkslabs)
+### UI 截图
 
----
 
-## ❓ FAQ
+| 界面 | 截图位置 | 说明 |
+| --- | --- | --- |
+| 资源库 | `docs/assets/screenshots/library.png` | 展示搜索、资源卡片和下载入口；请注意打码账户名与私有资源信息。 |
+| 下载面板 | `docs/assets/screenshots/downloads.png` | 展示下载队列及实时进度。 |
 
-<details>
-<summary><b>Will this get my Epic account banned?</b></summary>
-
-`epic-fab` uses the same OAuth client and the same public Fab endpoints the official Launcher uses. It's identical-to-Launcher traffic from Epic's side. Long-standing Linux tools — Legendary, Heroic — have used this approach for years without reports of account action. That said: no warranty. Read the license.
-
-</details>
-
-<details>
-<summary><b>Why not just Wine the Launcher?</b></summary>
-
-Tried that road. The Launcher under Wine is fragile, slow, breaks on every Epic update, and offers no scripting surface. `epic-fab` is one Bun binary, ~600 lines per module, fully scriptable, no GUI dependency.
-
-</details>
-
-<details>
-<summary><b>Does this work with Unreal Engine on Linux?</b></summary>
-
-Yes. The downloaded `.uasset` / `.uproject` content is the same content the Launcher delivers on Windows / Mac. UE 5.x on Linux opens it natively. Engine-version-aware: `epic-fab` defaults to `UE_5.7` and picks the matching artifact from each asset's available engine builds.
-
-</details>
-
-<details>
-<summary><b>What about Quixel Megascans?</b></summary>
-
-In scope. Megascans were absorbed into Fab and now live under the same library endpoint — `epic-fab list` surfaces them alongside marketplace assets.
-
-</details>
-
-<details>
-<summary><b>Is this affiliated with Epic Games?</b></summary>
-
-No. Independent open-source tool. Talks to public Epic / Fab endpoints. Not endorsed by, sponsored by, or affiliated with Epic Games, Inc.
-
-</details>
+<!-- 截图放入上述路径后，取消下面各图片行的注释。 -->
+<!-- ![Epic-Fab 资源库](./docs/assets/screenshots/library.png) -->
+<!-- ![Epic-Fab 下载面板](./docs/assets/screenshots/downloads.png) -->
 
 ---
 
-<div align="center">
+## 📦 命令参考
 
-<sub>Built with Bun · TypeScript · for Linux first, Linux always.</sub>
+| 命令 | 说明 |
+| --- | --- |
+| `epic-fab auth` | 通过浏览器 OAuth 登录 Epic 账户，并粘贴授权码。 |
+| `epic-fab whoami` | 显示当前认证账户的显示名称与账户 ID。 |
+| `epic-fab list [--json]` | 列出已拥有的 Fab 资源。 |
+| `epic-fab download <asset-id> --into <目录>` | 下载一个资源到指定目录。 |
+| `epic-fab sync --project <路径>` | 批量同步资源库到 UE 项目的 `Content/Fab/`。 |
+| `epic-fab ui [--port <端口>] [--no-open]` | 启动本地 Web UI，默认端口为 `8471`。 |
+| `epic-fab logout` | 删除本地保存的认证令牌。 |
 
-</div>
+常用选项：
+
+```text
+--into <dir>          download 的目标目录（默认：当前目录）
+--project <path>      sync 的 Unreal Engine 项目根目录
+--concurrency <n>     CDN 分块并发数（默认：8）
+--no-skip             即使本地 SHA-1 匹配也重新下载
+--refresh             跳过本地资源库缓存并强制刷新
+```
+
+程序退出码：`0` 成功、`1` 用户输入或参数错误、`2` 尚未认证、`3` 网络错误。
+
+---
+
+## 🔧 工作原理
+
+```text
+浏览器 OAuth 登录
+       │
+       ▼
+Epic 账户服务 ── 访问令牌 ──► Fab 资源库 API
+                                      │
+                                      ▼
+                             资源清单与 CDN 签名 URL
+                                      │
+                                      ▼
+                        并行分块下载、解压与 SHA-1 校验
+                                      │
+                                      ▼
+                       目标目录 / UE Content/Fab/ 目录
+```
+
+下载器支持 Epic 的二进制与 JSON 清单格式，按需获取 CDN 分块并组装文件。对于同步任务，资源会写入指定项目的 `Content/Fab/` 树中。
+
+---
+
+## 🛠️ 开发
+
+```bash
+# 类型检查
+bun run typecheck
+
+# 直接运行 CLI
+bun run src/cli.ts --help
+```
+
+项目结构：
+
+```text
+src/
+├── cli.ts             # CLI 参数解析与命令分发
+├── auth.ts            # Epic OAuth 与令牌存储
+├── api.ts             # Fab 资源库 API
+├── download.ts        # 分块下载与文件组装
+├── manifestParser.ts  # Epic 清单解析
+├── serve.ts           # 本地 UI 服务器与 JSON/SSE API
+└── ui/                # 原生 HTML / CSS / JavaScript 界面
+```
+
+欢迎提交 Issue 和 PR。提交前请至少运行 `bun run typecheck`，并避免提交认证令牌、下载资源或任何私有账户信息。
+
+---
+
+## 🙏 致谢
+
+- [Legendary](https://github.com/derrod/legendary)：Epic OAuth 与清单格式的重要参考。
+- [egs-api-rs](https://github.com/AchetaGames/egs-api-rs)：Fab API 集成参考。
+
+## 📜 许可证
+
+[MIT](./LICENSE) © 2026 Starks Labs
