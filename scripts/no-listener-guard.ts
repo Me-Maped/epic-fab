@@ -24,7 +24,9 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const SRC = join(ROOT, "src");
+
+/** Directories never scanned — third-party code and VCS metadata. */
+const SKIP_DIRS = new Set(["node_modules", ".git", ".github", "docs"]);
 
 /** Patterns that create an inbound network listener. Outbound fetch() is unaffected. */
 const LISTENER_PATTERNS: Array<{ re: RegExp; what: string }> = [
@@ -36,11 +38,15 @@ const LISTENER_PATTERNS: Array<{ re: RegExp; what: string }> = [
   { re: /\b0\.0\.0\.0\b/, what: "literal 0.0.0.0 bind address" },
 ];
 
-/** Files explicitly reviewed and permitted to contain the above. Empty by design. */
-const ALLOWED = new Set<string>([]);
+/**
+ * Files explicitly reviewed and permitted to contain the above.
+ * This guard file itself documents the patterns it bans, so it is exempt.
+ */
+const ALLOWED = new Set<string>(["scripts/no-listener-guard.ts"]);
 
 async function* walk(dir: string): AsyncGenerator<string> {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (SKIP_DIRS.has(entry.name)) continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) yield* walk(full);
     else if (/\.(ts|js|mjs|cjs)$/.test(entry.name)) yield full;
@@ -49,7 +55,9 @@ async function* walk(dir: string): AsyncGenerator<string> {
 
 const findings: string[] = [];
 
-for await (const file of walk(SRC)) {
+// Whole repo, not just src/ — a listener in scripts/ or at the root is the same
+// exposure with an extra step. node_modules and docs are skipped.
+for await (const file of walk(ROOT)) {
   const rel = relative(ROOT, file);
   if (ALLOWED.has(rel)) continue;
 
@@ -71,5 +79,5 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-console.log("no-listener-guard: OK — no network listener in src/");
+console.log("no-listener-guard: OK — no network listener in the repo");
 process.exit(0);
