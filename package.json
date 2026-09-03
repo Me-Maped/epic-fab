@@ -8,7 +8,9 @@
   },
   "scripts": {
     "start": "bun run src/cli.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "guard": "bun run scripts/no-listener-guard.ts",
+    "check": "bun run typecheck && bun run guard"
   },
   "keywords": [
     "epic-games",
