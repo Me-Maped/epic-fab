@@ -7,7 +7,7 @@ phase: build
 progress: 20/31
 mode: standard
 started: 2026-05-21T21:05:00-05:00
-updated: 2026-05-23T14:30:00-05:00
+updated: 2026-09-02T23:30:00-05:00
 iteration: 1
 ---
 
@@ -142,6 +142,14 @@ Ship a Bun/TypeScript CLI named `epic-fab` that authenticates to Epic via browse
 - **2026-05-22 — Push-without-stops batch:** Gerald said "commence all four recommended next steps, no stops". Executed in parallel: (1) Engineer dispatched in background to implement binary manifest parser per Epic's format spec, citing VastBlast as reference; (2) `bun link` succeeded — `epic-fab` v0.1.0 now resolves on `$PATH` at `/home/starkslabs/.bun/bin/epic-fab`; (3) `gh repo create starkslabs/epic-fab --public --source=. --remote=origin --push` succeeded — repo public at `github.com/StarksLabs/epic-fab` with all 4 commits; (4) live auth deferred — interactive paste flow cannot be automated; Gerald runs `epic-fab auth` when ready. URL + prompt halves of ISC-2 verified via empty-stdin smoke test.
 - **2026-05-22 — Engineer returned with manifest parser (403s, 127k tokens):** Created `src/manifestParser.ts` (610 lines), reshaped `src/api.ts` types, replaced `src/download.ts` with chunk-reassembling implementation. Notable: Engineer caught 3 format-spec errors in my dispatch brief (size fields u32 not u64, stored_as is a bitfield not enum, version comes after stored_as not before) and corrected against Legendary's canonical parser (`legendary/models/manifest.py`). Cited VastBlast as JSON-only fallback; used Legendary for the binary path. Refuses encrypted manifests rather than emitting junk. SHA1 verification of decompressed body + per-file fileHash. Version-dependent chunk directory routing (ChunksV4 for v17+, V5 for v22+). Bounded concurrency (8) + GUID dedup in download. typecheck clean. ISC-7 / ISC-11 still pending live probe — code path now complete but never executed against real Epic CDN.
 - **2026-05-21 — Containment: private-consumer ISC dropped from this ISA.** Original ISC-12 (a wrapper-skill integration test in a private framework) tombstoned. Why: this ISA is the system of record for the *public, framework-agnostic* `epic-fab` repo; anything that refers to private consumer-side paths or framework internals belongs in the private companion doc instead. Goal section also stripped of wrapper-skill wording. Features table lost the wrapper row for the same reason. The CLI itself is fully usable standalone; any downstream consumer wrapper is tracked elsewhere.
+
+### 2026-09-02 — community PRs triaged; no-network-listener adopted as a design rule
+
+- **Merged PR #1 whole** (`--engine` flag, engine fallback, `bestScore = -1` fix) and **PR #2's performance half only** (`466bd94` chunk concurrency, `dea2d1e` OOM fix). Both contributors' authorship preserved.
+- **Declined PR #2's web UI** (`254f23d`). `Bun.serve({ port })` with no `hostname` binds `0.0.0.0`, and the router exposed `POST /api/auth`, `/api/logout`, `/api/download`, `/api/download/<id>/cancel` with no Origin, Host, or CSRF validation while the process holds Epic OAuth tokens. Reachable both from the LAN and cross-origin from any visited website; `into` was also an unvalidated caller-controlled write path.
+- **Adopted as a standing design rule: epic-fab does not bind a port.** Enforced by `scripts/no-listener-guard.ts` (`bun run guard`), documented in `SECURITY.md` with the four requirements any future local UI must satisfy, and wired into CI on push + pull_request.
+- Confirmed `epic-fab auth` uses paste-the-code, **not** a loopback redirect — so there is no ephemeral listener during login either.
+- Full task ISA: `MEMORY/WORK/epicfab-pr-merge-csrf-hardening/ISA.md`.
 
 ## Changelog
 
